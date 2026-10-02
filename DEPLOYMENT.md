@@ -85,10 +85,15 @@ This Node WebSocket server needs PythonAnywhere's **async/ASGI beta hosting syst
    ```bash
    LUDO_FRONTEND='https://YOUR-SITE.netlify.app'
    LUDO_NODE="$(command -v node)"
-   pa website create --domain ludoloop.pythonanywhere.com --command "env ALLOWED_ORIGINS=$LUDO_FRONTEND PUBLIC_URL=$LUDO_FRONTEND $LUDO_NODE /home/ludoloop/ludo/server.mjs"
+   LUDO_ENV="$(command -v env)"
+   if [ -x "$LUDO_NODE" ] && [ -x "$LUDO_ENV" ]; then
+     pa website create --domain ludoloop.pythonanywhere.com --command "$LUDO_ENV ALLOWED_ORIGINS=$LUDO_FRONTEND PUBLIC_URL=$LUDO_FRONTEND $LUDO_NODE /home/ludoloop/ludo/server.mjs"
+   else
+     printf 'Node or env executable is missing. Stop and check the installation.\n'
+   fi
    ```
 
-`DOMAIN_SOCKET` is supplied automatically by PythonAnywhere. The server reads it and listens on the hosting socket instead of local port 4173. The website command uses the absolute Node executable, so website startup does not depend on loading NVM in a login shell.
+`DOMAIN_SOCKET` is supplied automatically by PythonAnywhere. The server reads it and listens on the hosting socket instead of local port 4173. The website command must start with the absolute `env` executable (normally `/usr/bin/env`), and also uses the absolute Node executable. The launcher does not resolve a bare `env` command through PATH; using it produces `[Errno 2] No such file or directory: env`. Website startup does not depend on loading NVM in a login shell.
 
 If `pa` is not found, try `/home/ludoloop/.local/bin/pa` in place of `pa`.
 
@@ -135,7 +140,27 @@ pa website reload --domain ludoloop.pythonanywhere.com
 
 Load NVM first if necessary. Reloading clears active rooms because they are stored in memory. Keep one server instance; shared multi-instance storage is not implemented.
 
-To change the approved frontend address, update the website command in the async website settings/API, then reload. `ALLOWED_ORIGINS` accepts exact origins separated by commas. Do not use a wildcard. Netlify proxies are not needed for WebSockets.
+Changing the startup command requires replacing the async website configuration. PythonAnywhere's beta API supports patching `enabled`, but does not support patching `command`. `ALLOWED_ORIGINS` accepts exact origins separated by commas. Do not use a wildcard. Netlify proxies are not needed for WebSockets.
+
+### Repair a deployment that reports `No such file or directory: env`
+
+Use this only for the broken website created with the earlier bare `env` command. It replaces that backend hosting configuration using the existing project files in `/home/ludoloop/ludo`. Successful replacement will restart the backend and clear any active in-memory rooms. In the Bash console:
+
+```bash
+source /home/ludoloop/nvm/nvm.sh
+nvm use 22
+LUDO_FRONTEND='https://ludoloop.netlify.app'
+LUDO_NODE="$(command -v node)"
+LUDO_ENV="$(command -v env)"
+if [ -x "$LUDO_NODE" ] && [ -x "$LUDO_ENV" ]; then
+  pa website delete --domain ludoloop.pythonanywhere.com &&
+  pa website create --domain ludoloop.pythonanywhere.com --command "$LUDO_ENV ALLOWED_ORIGINS=$LUDO_FRONTEND PUBLIC_URL=$LUDO_FRONTEND $LUDO_NODE /home/ludoloop/ludo/server.mjs"
+else
+  printf 'Node or env executable is missing. Stop and check the installation.\n'
+fi
+```
+
+Then check `/health` and a two-device game as described above. If startup still fails, inspect new log messages; old `env` errors remain in the log history.
 
 ## Free account limits
 
@@ -144,6 +169,7 @@ PythonAnywhere currently lists 512 MiB disk space, one web app with one worker a
 ## Official references
 
 - [PythonAnywhere async hosting and non-ASGI socket support](https://help.pythonanywhere.com/pages/ASGICommandLine/)
+- [PythonAnywhere async API and command replacement limitation](https://help.pythonanywhere.com/pages/ASGIAPI/)
 - [PythonAnywhere API token](https://help.pythonanywhere.com/pages/GettingYourAPIToken/)
 - [PythonAnywhere Node/NVM instructions](https://help.pythonanywhere.com/pages/Node/)
 - [PythonAnywhere free account limits](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)

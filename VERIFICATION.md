@@ -31,3 +31,11 @@ The fixture is test-only. The normal game server continues on port 4173.
 - No /game.mjs request was made by the standalone frontend. Each browser connected directly to the separate backend.
 - DOMAIN_SOCKET was tested with a Windows named pipe using Node's IPC listener API. This verifies the code path locally; it is not proof of PythonAnywhere's Linux gateway or account eligibility.
 - PythonAnywhere/Netlify account deployment has not been performed. Follow DEPLOYMENT.md and verify both HTTPS health and a two-device WebSocket game before calling it live.
+
+### User deployment follow-up — 2 October 2026
+
+- The user published the Netlify frontend at https://ludoloop.netlify.app; a live HTTP check returned 200 with the Ludo Loop title.
+- The user created the PythonAnywhere async website. The first live health check returned `502-backend`; a later request timed out. No live multiplayer success has been claimed.
+- The user supplied startup logs containing repeated `[Errno 2] No such file or directory: env`. The deployment guide now resolves the absolute env executable, verifies both executables exist and documents replacement of that broken website configuration.
+- Provider documentation states the async API cannot patch the serving command; it requires deleting/recreating the website configuration. The user's project directory remains the source for the corrected command.
+- This is a deployment guide correction; no game logic or application code was changed. PythonAnywhere health and multiplayer still need verification after the user applies the corrected command.
