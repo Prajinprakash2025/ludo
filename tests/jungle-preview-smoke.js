@@ -1,0 +1,31 @@
+async (page) => {
+  const base='https://significant-birmingham-businesses-program.trycloudflare.com';
+  for(const context of page.context().browser().contexts()) if(context!==page.context()) await context.close();
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.setViewportSize({width:1366,height:900});await page.goto(base);
+  await page.locator('#preview-board canvas').waitFor({state:'visible'});
+  const art=await page.evaluate(()=>getComputedStyle(document.body).backgroundImage.includes('data:image'));
+  if(art) throw new Error('Raster background was not removed');
+  if(await page.evaluate(()=>window.jungleScene.animals)!==16) throw new Error('Explorers missing');
+  await page.screenshot({path:'output/playwright/jungle-welcome.png',fullPage:true});
+  await page.locator('#rules-button').click();await page.locator('#rules-dialog').waitFor({state:'visible'});
+  await page.locator('#got-it').click();
+  const beforeSound=await page.locator('#sound').getAttribute('aria-pressed');
+  await page.locator('#sound').click();
+  if(await page.locator('#sound').getAttribute('aria-pressed')===beforeSound) throw new Error('Sound toggle failed');
+  await page.locator('#solo').click();await page.locator('#turn-controls').waitFor({state:'visible'});
+  await page.locator('#board').scrollIntoViewIfNeeded();
+  if(await page.locator('#board').getAttribute('data-renderer')!=='webgl') throw new Error('3D forest missing');
+  const width=await page.locator('#board').evaluate(el=>el.getBoundingClientRect().width);
+  if(width<950) throw new Error('Desktop board too small: '+width);
+  await page.waitForFunction(()=>document.querySelectorAll('#board .active-explorer').length===4);
+  await page.locator('[data-emote="0"]').click();await page.locator('#toast').filter({hasText:'Jump!'}).waitFor();
+  await page.locator('.activity summary').click();
+  if(!await page.locator('#activity-log').isVisible()) throw new Error('Journal unavailable');
+  await page.screenshot({path:'output/playwright/jungle-live-preview.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)) throw new Error('Live mobile overflow');
+  await page.screenshot({path:'output/playwright/jungle-live-mobile.png',fullPage:true});
+  if(errors.length) throw new Error(errors.join('\n'));
+  return {publicPreview:true,rasterBackground:false,nativeForest:true,boardWidth:width,animatedExplorers:16,bots:true,rules:true,sound:true,emotes:true,journal:true,mobile:true,pageErrors:errors};
+}

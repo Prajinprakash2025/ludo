@@ -1,0 +1,7 @@
+Ludo Loop temporary Internet preview
+
+https://significant-birmingham-businesses-program.trycloudflare.com
+
+Open this HTTPS address, create a room, and send the room code or invite link to your friends. Up to four people can play on their own devices, including different networks.
+
+This preview depends on the laptop, Node game server, and Cloudflare tunnel remaining running. It ends when those processes stop, and is not permanent hosting. Local games can be restarted with START-GAME.cmd. Internet deployment configuration is included in render.yaml and Dockerfile.

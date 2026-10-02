@@ -1,0 +1,23 @@
+# Jungle 3D UI verification — 1 October 2026
+
+- Syntax check passed.
+- All 13 existing engine and WebSocket tests passed, including 20 complete simulated games.
+- Four real browser players on the public HTTPS preview: 14 rolls, one move, same-seat reconnect, visible mobile controls, no page errors or horizontal overflow.
+- Two real browser players on an isolated fixture: six entry; observed route 4 → 5 → 6 → 7 → 8 → 9 on both clients; captures; safe squares; route 50 → 51 → 52 → 53 into the home lane; remote player movement; exact win; rematch; leave; reconnect without replay.
+- Reduced-motion client reached authoritative positions with no running animations.
+- Widths 320, 390 and 768 checked for horizontal overflow.
+- Public HTTPS and WebSocket preview: four peers received the same dice.
+- Public WebGL scene: 72 playable tiles, 16 articulated 3D animals, two waterfalls and eight torches. Water and flame shader time advanced during sampling. No image element or raster backdrop was loaded.
+- Mobile camera aspect matched the actual viewport; characters were not stretched. Reduced-motion mode paused water and flame time. Desktop and mobile screenshots were inspected.
+- The compiled client bundle and source syntax checks passed. The scene uses procedural geometry and locally generated surface textures.
+- Public UI controls: 1,350 px board at a 1,366 px viewport; live 3D welcome preview, rules dialog, sound toggle, bots, emotes and expandable trail journal passed.
+- Token click fix: real pointer clicks on stacked tokens, mobile head taps with touch enabled, opponent overlap, remote movement sync and keyboard entry passed. Inactive SVG hit areas no longer intercept clicks; pointer selection uses the complete projected 3D explorer.
+- Character emotes: Jump, Dance and Wave passed on the public preview with two real browser players. Both clients saw the sender's four explorers animate; other players' explorers remained idle. Different players could dance and wave concurrently. Positions stayed unchanged and only room emote messages were sent. Desktop/mobile screenshots were inspected; reduced-motion mode used no jump displacement or animated pose.
+- Token input was retested during the jump: stacked piece selection, remote sync, mobile head taps and keyboard entry passed.
+
+Production engine and server were not edited:
+
+    game.mjs   SHA256 4CD9C710272703357FDA548392C3B4CEA4B86C29A7FF5E1C252E94215CC2FBB1
+    server.mjs SHA256 29AAEF9D97818422DBEF6770D208D5E257F87A0E01E6F07EF61DA1429545E936
+
+The fixture is test-only. The normal game server continues on port 4173.

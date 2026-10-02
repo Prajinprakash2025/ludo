@@ -1,0 +1,75 @@
+/* Real lit 3D geometry fills the play area. Existing SVG controls remain accessible. */
+body.scene-3d{background:#123d2e}
+.scene-3d #preview-board{height:450px;padding:0;transform:none;overflow:hidden;background:#174c34;position:relative;border:2px solid #a2a552}
+.scene-3d .preview-board canvas{position:relative!important;width:100%;height:100%;display:block}
+.jungle-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.scene-3d #board{height:100%;width:100%;position:relative;overflow:hidden;border-radius:18px}
+.scene-3d #board>svg{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none}
+.scene-3d #board .token-hit{pointer-events:none}
+.scene-3d #board .token.movable .token-hit{pointer-events:all}
+.scene-3d #board .animal-idle,.scene-3d #board .scenery-motion{animation:none}
+.scene-3d .world-stage{display:none}
+.scene-3d #room-screen{position:relative;min-height:calc(100dvh - 65px)}
+.scene-3d .game-layout{position:relative;width:100%;max-width:none;height:calc(100dvh - 70px);min-height:600px;padding:0;overflow:hidden;display:block;background:#123e2f;border-radius:20px}
+.scene-3d main{max-width:none;padding:0 8px 8px}
+.scene-3d .board-column{position:absolute;inset:0;width:100%;height:100%;max-width:none}
+.scene-3d .board-shell{width:100%;height:100%;padding:0;filter:none;isolation:auto}
+.scene-3d .board-top,.scene-3d .board-bottom{display:none}
+.scene-3d .crew-panel{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:65%;max-width:950px;z-index:7;padding:0}
+.scene-3d .player-card{min-height:60px;border:2px solid var(--player-color);border-radius:17px;background:linear-gradient(130deg,#071a19ed,#153326df);box-shadow:0 4px 8px #04150d88;backdrop-filter:blur(7px)}
+.scene-3d .player-card.active{box-shadow:0 0 0 1px #ffe789,0 0 16px var(--player-color),inset 0 0 16px color-mix(in srgb,var(--player-color) 20%,transparent);background:linear-gradient(130deg,var(--player-tint),#153326e8)}
+.scene-3d .player-info h3{font-size:13px;font-weight:900;text-shadow:0 2px 1px #061410}
+.scene-3d .avatar{width:41px;height:44px}
+.scene-3d .player-card .seat-dice{color:#fff0c6;font-size:34px;width:31px}
+.scene-3d .player-score i{height:7px;width:7px;border-radius:50%;background:var(--player-color);opacity:.45}
+.scene-3d .player-score i.done{background:#fff39b;opacity:1;box-shadow:0 0 5px #ffe395}
+.scene-3d .room-heading{position:absolute;top:12px;left:12px;z-index:9;width:155px;margin:0}
+.scene-3d .room-invite{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:9px 12px;background:repeating-linear-gradient(6deg,#6a482a 0 4px,#70502e 5px 10px);border:3px solid #be9550;border-radius:10px;box-shadow:0 5px 0 #3e2d1d}
+.scene-3d .room-invite>span{display:block;grid-column:1/-1;text-align:center;color:#fff2c2;font-size:10px}
+.scene-3d .room-invite>#copy-code{grid-column:1/-1;letter-spacing:1px;font-size:20px;border:0;background:none;padding:1px;color:#ffe7ad}
+.scene-3d .room-invite #copy-link,.scene-3d .room-invite #leave{font-size:8px;padding:3px;margin:0;border:0;background:none}
+.scene-3d .play-panel{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);width:min(650px,65%);margin:0;padding:13px 18px 8px;border:3px solid #b79551;background:repeating-linear-gradient(3deg,#4e3423 0 4px,#533928 6px 14px);border-radius:18px;box-shadow:0 5px 0 #372617,0 10px 22px #041f19aa;z-index:8;backdrop-filter:none}
+.scene-3d .play-panel #turn-controls{grid-template-columns:minmax(0,1fr) 61px 175px;gap:3px 17px;padding-bottom:5px}
+.scene-3d .play-panel #turn-name{font-size:19px;font-weight:900}
+.scene-3d .play-panel #turn-help{font-size:10px;color:#e0d0a8}
+.scene-3d .turn-heading{font-size:10px;color:#ffe18a}
+.scene-3d .play-panel .dice{width:54px;height:54px;border-radius:13px;padding:12px;background:linear-gradient(130deg,#fff9e0,#dacaa2);box-shadow:0 4px 0 #af9362,0 8px 15px #25180d}
+.scene-3d .roll-button{background:linear-gradient(#85e72a,#19a53b);border:2px solid #a4ed64;box-shadow:0 5px 0 #136b24;min-height:48px;font-size:16px;font-weight:900;text-shadow:0 2px 0 #197629}
+.scene-3d .roll-button:disabled{background:linear-gradient(#6f8555,#3f5d40);border-color:#8d9b63;box-shadow:0 4px 0 #263b25;font-size:11px}
+.scene-3d #last-roll{font-size:8px}
+.scene-3d .activity{font-size:8px}
+.scene-3d .activity summary{font-size:8px;color:#e9d9ad}
+.scene-3d .emotes button{height:22px;width:27px;background:#735633;border-color:#b29552;font-size:13px}
+.scene-3d .game-footer{display:none}
+.scene-3d:has(#room-screen:not([hidden])) .site-footer{display:none}
+.scene-3d:has(#room-screen:not([hidden])) .topbar .brand{visibility:hidden}
+.scene-3d:has(#room-screen:not([hidden])) .topbar{height:55px;padding:0 18px;max-width:none}
+.scene-3d .top-actions .icon-button,.scene-3d .top-actions .text-button{background:linear-gradient(#89633d,#4c3524);border:2px solid #b98f4c;padding:8px 12px;border-radius:10px;color:#fff0c9;box-shadow:0 4px 0 #342719}
+.scene-3d .top-actions .icon-button{padding:0}
+.scene-3d .top-actions .connection{color:#c9ddbc}
+.scene-3d .winner-layer{left:20%;right:20%;top:15%;bottom:15%;box-shadow:0 20px 70px #061c17}
+@media(max-width:1050px){.scene-3d .crew-panel{width:72%;left:auto;right:9px;transform:none}.scene-3d .room-heading{width:140px}.scene-3d .player-info h3{font-size:10px}.scene-3d .play-panel{width:72%}}
+@media(max-width:650px){
+ .scene-3d main{padding:0 3px 3px}.scene-3d #room-screen{min-height:calc(100dvh - 52px)}
+ .scene-3d .game-layout{height:calc(100dvh - 57px);min-height:650px;border-radius:12px}
+ .scene-3d .crew-panel{top:48px;left:5px;right:5px;width:calc(100% - 10px);transform:none}
+ .scene-3d .player-card{min-height:70px;padding:4px;border-radius:10px;border-width:1px}
+ .scene-3d .player-info h3{font-size:8px}.scene-3d .player-card .seat-dice{font-size:24px;width:20px}
+ .scene-3d .avatar{width:29px;height:33px}.scene-3d .player-info>p{font-size:6px}
+ .scene-3d .room-heading{top:5px;left:8px;width:auto}.scene-3d .room-invite{display:flex;align-items:center;gap:5px;padding:3px 8px;border-width:2px}
+ .scene-3d .room-invite>span{display:none}.scene-3d .room-invite>#copy-code{font-size:13px;padding:0}
+ .scene-3d .room-invite #copy-link{font-size:7px}.scene-3d .room-invite #leave{font-size:7px}
+ .scene-3d .play-panel{width:calc(100% - 16px);padding:8px 10px;bottom:9px;border-radius:13px;border-width:2px}
+ .scene-3d .play-panel #turn-controls{grid-template-columns:minmax(0,1fr) 43px 112px;gap:2px 8px}
+ .scene-3d .play-panel #turn-name{font-size:12px}.scene-3d .play-panel #turn-help{font-size:8px}
+ .scene-3d .play-panel .dice{width:39px;height:39px;padding:8px;border-radius:10px}
+ .scene-3d .roll-button{font-size:11px;min-height:36px;border-width:1px;padding:5px 8px}
+ .scene-3d .roll-button:disabled{font-size:8px}.scene-3d .turn-heading{font-size:7px}
+ .scene-3d #last-roll{font-size:6px}.scene-3d .activity summary{font-size:7px}
+ .scene-3d .emotes button{height:19px;width:25px;font-size:12px}
+ .scene-3d.playing{padding-bottom:0}.scene-3d #mobile-dock{display:none!important}
+ .scene-3d #preview-board{height:340px}
+ .scene-3d .winner-layer{left:6%;right:6%;top:20%;bottom:20%}
+ .scene-3d #toast{bottom:125px}
+}
+@media(prefers-reduced-motion:reduce){.scene-3d *{animation:none!important}}

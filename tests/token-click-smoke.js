@@ -1,0 +1,46 @@
+async (page) => {
+  const browser=page.context().browser(),errors=[];
+  const context=await browser.newContext({hasTouch:true,viewport:{width:1440,height:1000}});
+  const actor=await context.newPage(),guestContext=await browser.newContext(),guest=await guestContext.newPage();
+  for(const p of [actor,guest])p.on('pageerror',e=>errors.push(e.message));
+  await actor.goto('http://127.0.0.1:4174');
+  await actor.getByRole('textbox',{name:'What should we call you?'}).fill('Click QA');
+  await actor.getByRole('button',{name:'Make some room'}).click();
+  await actor.locator('#room-screen').waitFor({state:'visible'});
+  const code=new URL(actor.url()).searchParams.get('room');
+  await guest.goto('http://127.0.0.1:4174/?room='+code);
+  await guest.getByRole('textbox',{name:'What should we call you?'}).fill('Stack QA');
+  await guest.getByRole('button',{name:'Pull up a seat'}).click();
+  await guest.locator('#room-screen').waitFor({state:'visible'});
+  await actor.getByRole('button',{name:'Start the race'}).click();
+  const own='#board .token[data-seat="0"]';
+  const setup=async(kind,width=1440)=>{
+    await actor.setViewportSize({width,height:width<650?844:1000});
+    await actor.request.get('http://127.0.0.1:4175/?code='+code+'&kind='+kind);
+    await actor.reload();await guest.reload();
+    await actor.waitForFunction(()=>window.jungleScene?.frames>3&&!document.getElementById('roll').disabled);
+    await actor.locator('#roll').click();
+    await actor.waitForFunction(()=>document.querySelector('#board .token.movable'));
+  };
+  const moved=()=>actor.waitForFunction(()=>Array.from(document.querySelectorAll('#board .token[data-seat="0"]')).some(el=>el.dataset.visualStep==='15'&&!el.classList.contains('walking')));
+  await setup('stack');
+  const rules=await actor.locator('#board .token:not(.movable) .token-hit').evaluateAll(els=>els.every(el=>getComputedStyle(el).pointerEvents==='none'));
+  if(!rules)throw new Error('Inactive pieces still block clicks');
+  await actor.getByRole('button',{name:'Jump with my characters'}).click();
+  await actor.waitForFunction(()=>window.jungleScene.emotes?.some(e=>e.jumpHeight>.5));
+  let hit=await actor.locator(own+'[data-token="0"] .token-hit').boundingBox();
+  await actor.mouse.click(hit.x+hit.width/2,hit.y+hit.height/2);
+  await moved();
+  await guest.waitForFunction(()=>Array.from(document.querySelectorAll('#board .token[data-seat="0"]')).some(el=>el.dataset.visualStep==='15'));
+  await setup('stack',390);
+  hit=await actor.locator(own+'[data-token="0"] .token-hit').boundingBox();
+  await actor.touchscreen.tap(hit.x+hit.width/2,hit.y+hit.height*.15);
+  await moved();
+  await setup('entry');
+  await actor.locator(own+'[data-token="0"]').focus();
+  await actor.keyboard.press('Enter');
+  await actor.waitForFunction(()=>document.querySelector('#board .token[data-seat="0"][data-token="0"]').dataset.visualStep==='0');
+  if(errors.length)throw new Error(errors.join('\n'));
+  await context.close();await guestContext.close();
+  return {stackedMouseClick:true,clickWhileJumping:true,mobileHeadTap:true,opponentDoesNotBlock:true,remoteSync:true,keyboard:true,pageErrors:errors};
+}

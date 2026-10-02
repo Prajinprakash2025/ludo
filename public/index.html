@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#173a2a">
+  <meta name="description" content="A colorful four-player Ludo race. Create a room, invite your friends, and let the good rolls begin.">
+  <title>Ludo Loop — Jungle Adventure</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='16' fill='%23eb6658'/%3E%3Cg fill='white'%3E%3Ccircle cx='22' cy='22' r='5'/%3E%3Ccircle cx='42' cy='42' r='5'/%3E%3Ccircle cx='32' cy='32' r='5'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Ludo Loop home"><span class="brand-mark"><i></i><i></i><i></i><i></i></span>LUDO<span>LOOP</span><small>JUNGLE ADVENTURE</small></a>
+    <div class="top-actions"><span class="connection"><i></i><span id="connection-text">Connecting…</span></span><button id="sound" class="icon-button" aria-label="Enable sound" title="Toggle sound">♪</button><button id="rules-button" class="text-button">How to play <span>↗</span></button><button id="fullscreen" class="icon-button" aria-label="Fullscreen" title="Fullscreen">⛶</button></div>
+  </header>
+  <main>
+    <section id="welcome" class="welcome">
+      <div class="welcome-copy"><div class="eyebrow"><span></span> YOUR NEXT GREAT EXPEDITION</div><h1>Wild rolls.<br>Grand <span>adventures.</span></h1><p>Four explorers. One legendary race.<br>Gather your friends. Find your way through the jungle.</p><div class="welcome-tags"><span>✦ 2–4 players</span><span>⌁ Live multiplayer</span><span>♡ No downloads</span></div>
+        <div class="setup-card">
+          <div class="setup-tabs"><button id="create-tab" class="selected">Create a room</button><button id="join-tab">Join your friends</button></div>
+          <label for="name">What should we call you?</label><input id="name" maxlength="18" placeholder="Your name" autocomplete="nickname" value="Player">
+          <div id="join-field" hidden><label for="room-input">Room code</label><input id="room-input" maxlength="6" placeholder="e.g. LOOP42" autocomplete="off"></div>
+          <button id="begin" class="primary">Make some room <span>→</span></button>
+          <div class="setup-divider"><span>or warm up first</span></div><button id="solo" class="solo-button">🤖 Play a quick game with bots <span>↗</span></button>
+          <p class="setup-note">Free to play. Fair dice. Just bring your lucky streak.</p>
+        </div>
+      </div>
+      <div class="welcome-art"><div class="sticker sticker-one">INTO THE WILD <span>✦</span></div><div id="preview-board" class="preview-board"></div><div class="sticker sticker-two"><span>♡</span> YOUR CREW. YOUR ADVENTURE.</div><div class="floating-die die-one"><span>⚄</span></div><div class="floating-die die-two"><span>⚂</span></div><div class="orbit-dot orbit-one"></div><div class="orbit-dot orbit-two"></div><p class="art-caption">A wild little adventure. A classic game of Ludo.</p></div>
+    </section>
+    <section id="room-screen" hidden>
+      <div class="room-heading"><div><div class="eyebrow">EXPEDITION BASECAMP</div><h1 id="room-title">Let the good rolls begin.</h1></div><div class="room-invite"><span>ROOM CODE</span><button id="copy-code" title="Copy room code">------ <small>▣</small></button><button id="copy-link" class="outline-button">Copy invite ↗</button><button id="leave" class="text-button leave-button">Leave</button></div></div>
+      <div class="game-layout">
+        <aside class="crew-panel"><div class="panel-title"><h2>The crew</h2><span id="crew-count">1 / 4</span></div><div id="players"></div><div class="crew-note"><span>✦</span><div><strong>Safe spots, big plans.</strong><p>Star squares keep your tokens safe from captures.</p></div></div><div class="fair-badge"><span>✓</span> Server-generated dice<br><small>Every roll is a fresh chance.</small></div></aside>
+        <div class="board-column"><div class="board-top"><span id="game-mode">FRIENDS AT THE TABLE</span><span id="you-label">YOU ARE BEAR</span></div><div class="board-shell"><div id="board"></div><div id="winner-layer" class="winner-layer" hidden></div></div><div class="board-bottom"><span>✦ Stars = safe squares</span><span>Get all 4 tokens home to win <span>↗</span></span></div><div id="live-announcement" class="sr-only" aria-live="polite"></div></div>
+        <aside class="play-panel"><div id="lobby-controls"></div><div id="turn-controls" hidden><div class="turn-heading"><span id="turn-tag">YOUR TURN</span><span id="timer">45s</span></div><h2 id="turn-name">Let’s roll, Player.</h2><p id="turn-help">Roll a six to launch a token.</p><button id="dice" class="dice" aria-label="Dice"><span class="pip-grid"></span></button><div id="last-roll">Your lucky streak starts here.</div><button id="roll" class="primary roll-button">Roll the dice <span>↗</span></button><div class="timer-track"><span id="timer-fill"></span></div></div><details class="activity"><summary>Trail journal <span>⌄</span></summary><div class="panel-title"><h2>Table talk</h2><span>LIVE <i></i></span></div><div id="activity-log"><p>Invite your friends. The board is ready.</p></div></details><div class="emotes"><button type="button" class="emote-action" data-emote="0" aria-label="Jump with my characters"><span aria-hidden="true">🐾</span><span>Jump</span></button><button type="button" class="emote-action" data-emote="1" aria-label="Dance with my characters"><span aria-hidden="true">💃</span><span>Dance</span></button><button type="button" class="emote-action" data-emote="2" aria-label="Wave with my characters"><span aria-hidden="true">👋</span><span>Wave</span></button></div><p class="emote-caption">Cheer on your explorers.</p></aside>
+      </div>
+      <div class="game-footer"><span>FOLLOW THE STARS. BRING THE CREW HOME.</span><span>♡ Play fair. Cheer loud.</span></div>
+    </section>
+  </main>
+  <footer class="site-footer"><span>A pocket-sized jungle adventure.</span><span>MADE FOR GOOD COMPANY <span>✦</span></span></footer>
+  <dialog id="rules-dialog"><button id="close-rules" class="dialog-close" aria-label="Close rules">×</button><div class="eyebrow">A QUICK REFRESHER</div><h2>Small board.<br>Big possibilities.</h2><ol><li><strong>Six gets you started.</strong> Roll a 6 to move a token out of its nest. Entering uses the roll.</li><li><strong>Follow your color home.</strong> Tokens move clockwise. You need the exact roll to finish.</li><li><strong>Catch up, send back.</strong> Land on an opponent’s token to send it to its nest. Star squares are safe.</li><li><strong>Keep a good thing going.</strong> A six, capture, or finishing a token gives you another roll. Three sixes in a row lose the third roll and end your turn.</li><li><strong>Bring the whole crew home.</strong> First to finish all four tokens wins. Own tokens may stack; this version has no blockades.</li></ol><div class="rules-note">45 seconds per action. A missed action passes the turn. Invalid moves are blocked; unlucky rolls and bad strategy never get you kicked out.</div><button id="got-it" class="primary">Got it. Let’s play →</button></dialog>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <div id="mobile-dock" hidden><button id="mobile-dice" aria-label="Roll dice">6</button><div><strong id="mobile-turn">Your turn</strong><small id="mobile-help">Ready to roll</small></div><button id="mobile-roll">Roll ↗</button></div>
+  <div id="confetti" aria-hidden="true"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
