@@ -12,7 +12,7 @@ Jump, Dance and Wave buttons animate only the sending player's visible explorers
 
 Three.js renders actual stone tiles, raised camps, animals, palms, trees, grass, mossy rocks, flowing rivers, two waterfalls, bridges, flowers, mushrooms, torches and fireflies. Directional lighting and shadows give the board depth. Water and flame shaders animate continuously. Stone, grass and wood textures are generated locally; the reference image is not loaded as a backdrop. Existing SVG token controls remain available for keyboard input and are projected onto the 3D explorers for pointer input. A fullscreen button enlarges the scene.
 
-The client bundle contains the renderer. No new backend routes or runtime external asset requests were added. server.mjs and game.mjs are unchanged from the original game. Browsers unable to create a WebGL renderer retain the previous SVG presentation.
+The client bundle contains the renderer and shared board coordinates. No runtime external asset requests are needed. The game engine in game.mjs is unchanged; server.mjs includes optional frontend origin permissions and hosting socket startup for separate deployments. Browsers unable to create a WebGL renderer retain the previous SVG presentation.
 
 Editable client sources are src/app.js and src/world3d.js. Run npm.cmd run build after editing them; public/app.js is generated. Styling is in public/styles.css.
 
@@ -28,6 +28,8 @@ Open http://localhost:4173, create a room, and copy the invite. On a local compu
 On this Windows laptop you can also double-click START-GAME.cmd to open the game. If it is already running, the launcher opens the existing game instead of starting a second server.
 
 ## Play over the Internet
+
+For a Netlify frontend and a separate PythonAnywhere backend, follow [DEPLOYMENT.md](DEPLOYMENT.md). Netlify builds this frontend using BACKEND_URL; the server permits the exact frontend origin through ALLOWED_ORIGINS. PythonAnywhere deployment uses its experimental async hosting system with DOMAIN_SOCKET, not a classic WSGI web app. Account compatibility and actual live WebSockets must be verified after deployment.
 
 A temporary Internet preview is recorded in LIVE-PREVIEW.txt. It is backed by this laptop and ends when the game server or tunnel stops. Cloudflare Quick Tunnels are a development preview, not permanent hosting: https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/
 

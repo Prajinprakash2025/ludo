@@ -1,0 +1,151 @@
+# Netlify frontend + PythonAnywhere backend
+
+Prepared for GitHub repository https://github.com/Prajinprakash2025/ludo and PythonAnywhere account **ludoloop** on the US service.
+
+The frontend renders the jungle and connects directly to the backend over secure WebSockets. The backend owns rooms, dice and legal moves. You do not need this laptop running after both services are deployed.
+
+**Status:** separate hosting code is prepared and locally verified. These instructions do not mean a PythonAnywhere or Netlify deployment has already been completed.
+
+## 1. Deploy the frontend on Netlify
+
+1. Log in to Netlify. Add a new project by importing an existing Git repository.
+2. Select `Prajinprakash2025/ludo`, branch `main`.
+3. Build command: `npm run build`. Publish directory: `public`. Base directory: leave empty. These settings are also in `netlify.toml`.
+4. Add this environment variable, available during **builds**, before deploying:
+
+   ```text
+   BACKEND_URL=https://ludoloop.pythonanywhere.com
+   ```
+
+5. Deploy, then copy the actual Netlify site URL, for example `https://your-real-site.netlify.app`. The page will reconnect until the backend is running. This is expected at this stage.
+
+Use the primary production URL in the steps below. Temporary deploy-preview addresses are not automatically allowed. If you later add a custom domain, update the backend allowlist too.
+
+## 2. Prepare Node.js on PythonAnywhere
+
+Confirm your email and open **Consoles → Bash** in the **ludoloop** account. These are Linux Bash commands for the PythonAnywhere console, not Windows PowerShell commands.
+
+Check the installed runtime:
+
+```bash
+node --version
+npm --version
+```
+
+The project needs Node.js 20 or newer. If Node is missing or older, install Node 22 using NVM. This follows PythonAnywhere's documented NVM approach:
+
+```bash
+git clone --depth 1 https://github.com/nvm-sh/nvm.git /home/ludoloop/nvm
+source /home/ludoloop/nvm/nvm.sh
+nvm install 22
+nvm use 22
+nvm alias default 22
+node --version
+npm --version
+```
+
+If `/home/ludoloop/nvm` already exists, skip the clone and start with `source`. In later consoles, use `source /home/ludoloop/nvm/nvm.sh` and `nvm use 22` before running npm.
+
+Free accounts restrict outbound Internet access. GitHub, npmjs.org and nodejs.org are listed in the provider's allowlist at the time these instructions were prepared. If an install fails with a proxy/access error, keep the exact error; do not assume installation succeeded or disable certificate checks.
+
+## 3. Download the backend
+
+Run these in the PythonAnywhere Bash console:
+
+```bash
+git clone --depth 1 https://github.com/Prajinprakash2025/ludo.git /home/ludoloop/ludo
+cd /home/ludoloop/ludo
+npm ci --omit=dev --cache /tmp/ludoloop-npm-cache
+```
+
+The compiled frontend is already committed. Do not run `npm run build` in this backend installation: development dependencies were intentionally omitted and Netlify performs its own frontend build.
+
+If `/home/ludoloop/ludo` already contains this checkout, use `cd /home/ludoloop/ludo` and `git pull --ff-only` instead of cloning again.
+
+## 4. Enable PythonAnywhere's experimental async hosting
+
+This Node WebSocket server needs PythonAnywhere's **async/ASGI beta hosting system**, which also accepts non-ASGI servers listening on a Unix domain socket. The normal **Web → Add a new web app → Flask/Django/WSGI** workflow does not run this server.
+
+1. Open **Account → API token** and generate a token yourself if none exists. Keep it in PythonAnywhere; do not paste it into chat, GitHub or Netlify. Their console tool can use the account token without you copying it.
+2. Open a fresh Bash console and install their deployment tool:
+
+   ```bash
+   python3 -m pip install --user --upgrade pythonanywhere
+   ```
+
+3. If you installed Node using NVM, load it in this fresh console:
+
+   ```bash
+   source /home/ludoloop/nvm/nvm.sh
+   nvm use 22
+   ```
+
+4. Replace **only** `https://YOUR-SITE.netlify.app` below with the real Netlify URL from step 1. Use the origin only: no path, query string or trailing slash.
+
+   ```bash
+   LUDO_FRONTEND='https://YOUR-SITE.netlify.app'
+   LUDO_NODE="$(command -v node)"
+   pa website create --domain ludoloop.pythonanywhere.com --command "env ALLOWED_ORIGINS=$LUDO_FRONTEND PUBLIC_URL=$LUDO_FRONTEND $LUDO_NODE /home/ludoloop/ludo/server.mjs"
+   ```
+
+`DOMAIN_SOCKET` is supplied automatically by PythonAnywhere. The server reads it and listens on the hosting socket instead of local port 4173. The website command uses the absolute Node executable, so website startup does not depend on loading NVM in a login shell.
+
+If `pa` is not found, try `/home/ludoloop/.local/bin/pa` in place of `pa`.
+
+If the account/API refuses to create an async website, or you get a beta eligibility/plan error, stop and keep that error. Code changes cannot grant account eligibility. PythonAnywhere describes this hosting feature as experimental; account availability and future pricing are not guaranteed. Do not purchase an upgrade without deciding whether you want one.
+
+## 5. Verify that it is live
+
+Open:
+
+```text
+https://ludoloop.pythonanywhere.com/health
+```
+
+It should return:
+
+```json
+{"ok":true}
+```
+
+Then open the Netlify frontend. It must say **Ready to play**. Create a room, copy its invite, and join from another phone/browser. Roll and move a token; both players must see the same result. Press Jump, Dance or Wave; both players must see the sender's explorers animate.
+
+A health response alone does not prove WebSockets work. The two-device room test is the deployment check that matters.
+
+You can inspect the deployed website from the Bash console:
+
+```bash
+pa website get --domain ludoloop.pythonanywhere.com
+```
+
+If the backend fails, read the error/server log paths shown by this command. The beta website might not appear in the regular Web tab. Do not create a duplicate WSGI app to resolve that.
+
+## Updating later
+
+Netlify can rebuild after each GitHub push. If BACKEND_URL changes, trigger a new Netlify build; it is compiled into the frontend.
+
+Backend changes need a pull and reload in PythonAnywhere:
+
+```bash
+cd /home/ludoloop/ludo
+git pull --ff-only
+npm ci --omit=dev --cache /tmp/ludoloop-npm-cache
+pa website reload --domain ludoloop.pythonanywhere.com
+```
+
+Load NVM first if necessary. Reloading clears active rooms because they are stored in memory. Keep one server instance; shared multi-instance storage is not implemented.
+
+To change the approved frontend address, update the website command in the async website settings/API, then reload. `ALLOWED_ORIGINS` accepts exact origins separated by commas. Do not use a wildcard. Netlify proxies are not needed for WebSockets.
+
+## Free account limits
+
+PythonAnywhere currently lists 512 MiB disk space, one web app with one worker and a one-month expiry for new free accounts. Check the account's expiry/renewal controls. Async hosting is beta and its longer-term pricing is undecided; permanent free uptime is not promised by this project.
+
+## Official references
+
+- [PythonAnywhere async hosting and non-ASGI socket support](https://help.pythonanywhere.com/pages/ASGICommandLine/)
+- [PythonAnywhere API token](https://help.pythonanywhere.com/pages/GettingYourAPIToken/)
+- [PythonAnywhere Node/NVM instructions](https://help.pythonanywhere.com/pages/Node/)
+- [PythonAnywhere free account limits](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)
+- [PythonAnywhere outbound allowlist](https://www.pythonanywhere.com/whitelist/)
+- [Netlify build environment variables](https://docs.netlify.com/build/configure-builds/environment-variables/)

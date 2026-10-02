@@ -1,5 +1,7 @@
 import { createJungleScene } from './world3d.js';
-import { COLORS, TRACK, LANES, YARDS, SAFE, FINISH } from '/game.mjs';
+import { COLORS, TRACK, LANES, YARDS, SAFE, FINISH } from '../game.mjs';
+import { socketAddress, inviteAddress } from './hosting.js';
+const backendUrl = typeof __LUDO_BACKEND_URL__ === 'string' ? __LUDO_BACKEND_URL__ : '';
 const $ = id => document.getElementById(id);
 const PALETTE = ['#df5e49','#64b85d','#e9b13e','#409acb'];
 const LABELS = ['Bear','Panda','Deer','Fox'];
@@ -56,7 +58,7 @@ function send(action) {
 }
 function connect() {
   clearTimeout(reconnectTimer);
-  const socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://')+location.host);
+  const socket = new WebSocket(socketAddress(backendUrl,location.href));
   ws = socket;
   socket.onopen = () => {
     if (socket !== ws) return;
@@ -100,6 +102,7 @@ function connect() {
     $('connection-text').textContent = 'Reconnecting…';
     document.querySelector('.connection').classList.remove('online');
     if (e.code === 4001) { retry = false; toast('This player session is open in another tab.'); }
+    if (e.code === 1008) { retry = false; $('connection-text').textContent = 'Connection blocked'; toast('The server blocked this connection. Check the allowed website address or reload to try again.'); }
     if (retry) reconnectTimer = setTimeout(connect,Math.min(5000,800*++reconnectCount));
     updateButtons();
   };
@@ -153,8 +156,7 @@ async function copy(text,confirmation) {
 $('copy-code').onclick = () => room && copy(room.code,'Room code copied. Bring your crew!');
 $('copy-link').onclick = () => {
   if (!room) return;
-  const base = session?.shareBase || location.origin;
-  copy(base+'/?room='+room.code,'Invite link copied. Send it to your friends!');
+  copy(inviteAddress(room.code,backendUrl,location.href,session?.shareBase),'Invite link copied. Send it to your friends!');
 };
 $('leave').onclick = () => {
   if (room?.game && room.game.phase !== 'done' && !window.confirm('Leave this race? Your tokens will leave the board.')) return;

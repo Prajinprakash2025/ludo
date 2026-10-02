@@ -11,7 +11,15 @@ const root = fileURLToPath(new URL('./public/',import.meta.url));
 const TURN_MS = 45000;
 const EMOTES = ['Nice move! ✨','Oops! 🙈','Let’s go! 🚀','Good game! 🤝'];
 const MIME = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8'};
-export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, botDelay = 1000} = {}) {
+export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, botDelay = 1000,
+  allowedOrigins = process.env.ALLOWED_ORIGINS || '', publicUrl = process.env.PUBLIC_URL || ''} = {}) {
+  const origins = new Set(allowedOrigins.split(',').map(x => x.trim()).filter(Boolean).map(value => {
+    const url = new URL(value);
+    if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+      throw new Error('ALLOWED_ORIGINS must contain exact HTTP(S) website origins.');
+    }
+    return url.origin;
+  }));
   const rooms = new Map();
   const server = http.createServer(async (req,res) => {
     const path = new URL(req.url,'http://localhost').pathname;
@@ -143,12 +151,18 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
   wss.on('connection',(ws,req) => {
     const origin = req.headers.origin;
     if (origin) {
-      try { if (new URL(origin).host !== req.headers.host) { ws.close(1008,'Origin not allowed'); return; } }
+      try {
+        const parsed = new URL(origin);
+        if (!['http:','https:'].includes(parsed.protocol) || parsed.origin !== origin ||
+            (parsed.host !== req.headers.host && !origins.has(origin))) {
+          ws.close(1008,'Origin not allowed'); return;
+        }
+      }
       catch { ws.close(1008,'Invalid origin'); return; }
     }
     let base = origin || 'http://'+req.headers.host;
-    if (process.env.PUBLIC_URL) base = process.env.PUBLIC_URL.replace(/\/$/,'');
-    else if (/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(base)) {
+    if (publicUrl) base = publicUrl.replace(/\/$/,'');
+    else if (!origins.has(origin) && typeof server.address() === 'object' && /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(base)) {
       const addresses = Object.values(networkInterfaces()).flat().filter(x => x.family==='IPv4' && !x.internal);
       const local = addresses.find(x => /^192\.168\.1\./.test(x.address)) || addresses.find(x => /^192\.168\./.test(x.address)) || addresses[0];
       if (local) base = 'http://'+local.address+':'+server.address().port;
@@ -208,6 +222,10 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const app = createLudoServer();
-  const port = Number(process.env.PORT || 4173);
-  app.server.listen(port,'0.0.0.0',() => console.log('Ludo Loop ready at http://localhost:'+port));
+  if (process.env.DOMAIN_SOCKET) {
+    app.server.listen(process.env.DOMAIN_SOCKET,() => console.log('Ludo Loop ready on hosting socket'));
+  } else {
+    const port = Number(process.env.PORT || 4173);
+    app.server.listen(port,'0.0.0.0',() => console.log('Ludo Loop ready at http://localhost:'+port));
+  }
 }

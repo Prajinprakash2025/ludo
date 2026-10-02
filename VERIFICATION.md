@@ -21,3 +21,13 @@ Production engine and server were not edited:
     server.mjs SHA256 29AAEF9D97818422DBEF6770D208D5E257F87A0E01E6F07EF61DA1429545E936
 
 The fixture is test-only. The normal game server continues on port 4173.
+
+## Separate hosting preparation — 2 October 2026
+
+- The game engine hash above is unchanged. Server changes are limited to hosting origin permissions, invite address configuration and DOMAIN_SOCKET startup.
+- Frontend builds now bundle shared coordinates and accept a public BACKEND_URL at build time. Netlify configuration publishes only public/.
+- All 16 engine/network/hosting tests pass. New checks cover secure frontend sockets, frontend invite paths, preserved LAN invites, rejected unapproved origins, and health plus real WebSocket room creation over the hosting IPC listener.
+- Four real browser clients connected from static frontend port 4184 to backend port 4185: room joining, server dice, synchronized token entry, sender-only Dance on every client, frontend invite URL, same-seat reconnect, mobile overflow and zero page errors passed.
+- No /game.mjs request was made by the standalone frontend. Each browser connected directly to the separate backend.
+- DOMAIN_SOCKET was tested with a Windows named pipe using Node's IPC listener API. This verifies the code path locally; it is not proof of PythonAnywhere's Linux gateway or account eligibility.
+- PythonAnywhere/Netlify account deployment has not been performed. Follow DEPLOYMENT.md and verify both HTTPS health and a two-device WebSocket game before calling it live.
