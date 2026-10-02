@@ -8,7 +8,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
   let renderer;
   try {renderer=new T.WebGLRenderer({antialias:!mobile,alpha:false,powerPreference:'high-performance'});}
   catch {document.body.classList.add('webgl-fallback');return null;}
-  renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1:1.65));
+  renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.5:1.65));
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.02;
   renderer.shadowMap.enabled=!mobile;renderer.shadowMap.type=T.PCFShadowMap;
@@ -30,9 +30,16 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     return materials.get(key);
   }
   const sphere=new T.SphereGeometry(1,mobile?12:20,mobile?8:14), rockGeo=new T.IcosahedronGeometry(1,1);
+  const characterSphere=new T.SphereGeometry(1,20,14);
   const stemGeo=new T.CylinderGeometry(1,1,1,8);
   const leafGeo=new T.SphereGeometry(1,mobile?8:12,mobile?5:8);
-  const explorerRingGeo=new T.TorusGeometry(.39,.025,8,32);
+  const explorerRingGeo=new T.TorusGeometry(.43,.045,8,32);
+  const haloGeo=new T.CircleGeometry(.51,24);
+  const moveMarkerGeo=new T.ConeGeometry(.11,.2,3);
+  const characterMaterials=Array.from({length:4},()=>new Map());
+  const ringMaterials=colors.map(color=>new T.MeshBasicMaterial({color}));
+  const haloMaterials=colors.map(color=>new T.MeshBasicMaterial({color,transparent:true,opacity:.3,depthWrite:false}));
+  const markerMaterial=new T.MeshBasicMaterial({color:'#fff4a3'});
   const scarfGeo=new T.ConeGeometry(.14,.18,3);
   const smileCurve=new T.QuadraticBezierCurve3(new T.Vector3(-.08,-.185,.351),new T.Vector3(0,-.24,.38),new T.Vector3(.08,-.185,.351));
   const smileGeo=new T.TubeGeometry(smileCurve,10,.008,5,false);
@@ -334,6 +341,8 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     particles.push({m,phase:random()*6,base:m.position.y,fly:true,x,z});
   }
   function animal(seat,token) {
+    // Characters retain smooth faces; the surrounding forest uses lighter meshes.
+    const ball=(p,color,x,y,z,sx,sy=sx,sz=sx,extra={})=>mesh(p,characterSphere,mat(color,extra),x,y,z,sx,sy,sz);
     const g=new T.Group(),body=new T.Group(),head=new T.Group(),eyes=new T.Group();
     g.add(body);head.position.set(0,.98,0);head.rotation.x=-.4;body.add(head);head.add(eyes);
     const panda=seat===1,fox=seat===3,deer=seat===2;
@@ -387,14 +396,27 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       }
       for(const dx of [-.2,.2])ball(head,'#fae4b1',dx,.14,.227,.025,.029,.008);
     }
-    const ring=mesh(g,explorerRingGeo,mat(colors[seat],{emissive:colors[seat],emissiveIntensity:.8}),0,.03,0);
+    const ring=mesh(g,explorerRingGeo,ringMaterials[seat],0,.045,0,1,1,1,false);
     ring.rotation.x=Math.PI/2;
+    const halo=mesh(g,haloGeo,haloMaterials[seat],0,.035,0,1,1,1,false);halo.rotation.x=-Math.PI/2;
+    const marker=mesh(g,moveMarkerGeo,markerMaterial,0,1.63,0,1,1,1,false);marker.rotation.z=Math.PI;
     // A physical numbered badge makes otherwise identical explorers selectable.
     const numberCanvas=document.createElement('canvas');numberCanvas.width=64;numberCanvas.height=64;
     const ctx=numberCanvas.getContext('2d');ctx.fillStyle='#ffe6a1';ctx.beginPath();ctx.arc(32,32,28,0,Math.PI*2);ctx.fill();ctx.fillStyle='#4d3921';ctx.font='bold 39px Trebuchet MS';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(token+1),32,34);
     const texture=new T.CanvasTexture(numberCanvas);texture.colorSpace=T.SRGBColorSpace;
     const badge=mesh(g,new T.PlaneGeometry(.16,.16),new T.MeshBasicMaterial({map:texture,transparent:true,side:T.DoubleSide}),.27,.17,.22,1,1,1,false);badge.rotation.x=-.45;
-    scene.add(g);return {g,body,head,eyes,feet,arms,ring,seat,token,phase:seat*.9+token*1.6};
+    // Seat-specific material copies let us glow one crew without tinting scenery
+    // or another player's fur; copies remain shared by that crew's four pieces.
+    g.traverse(node=>{
+      if(!node.material?.isMeshStandardMaterial)return;
+      const original=node.material,copies=characterMaterials[seat];
+      if(!copies.has(original.uuid)){
+        const material=original.clone();
+        copies.set(original.uuid,{material,emissive:material.emissive.clone(),intensity:material.emissiveIntensity});
+      }
+      node.material=copies.get(original.uuid).material;
+    });
+    scene.add(g);return {g,body,head,eyes,feet,arms,ring,halo,marker,seat,token,phase:seat*.9+token*1.6};
   }
   for(let s=0;s<4;s++)for(let t=0;t<4;t++)animals.push(animal(s,t));
   // Keep scenery in static GPU buffers. Only articulated/animated parts need
@@ -410,7 +432,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
   torches.forEach(t=>{moving(t.flame);moving(t.core);});
   fallLines.forEach(line=>moving(line.m));ripples.forEach(r=>moving(r.m));
   particles.forEach(p=>moving(p.m));
-  animals.forEach(a=>[a.g,a.body,a.head,a.eyes,a.ring,...a.arms,...a.feet].forEach(moving));
+  animals.forEach(a=>[a.g,a.body,a.head,a.eyes,a.ring,a.halo,a.marker,...a.arms,...a.feet].forEach(moving));
   scene.updateMatrixWorld(true);
   scene.traverse(node=>{if(!movingNodes.has(node)){node.updateMatrix();node.matrixAutoUpdate=false;}});
   // tick owns the single matrix update; renderer must not traverse it again.
@@ -440,7 +462,8 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
   preview.innerHTML='';
   let renderHost=preview;preview.append(renderer.domElement);
   let width=0,height=0,lastFrame=0,frames=0,frameMs=0,stopped=false;
-  const diagnostics={renderer:'WebGL 3D',frames:0,tiles:tileMeshes.length,animals:16,waterfalls:2,torchCount:torches.length,drawCalls:0,fps:0,performanceVersion:1};
+  const diagnostics={renderer:'WebGL 3D',frames:0,tiles:tileMeshes.length,animals:16,waterfalls:2,torchCount:torches.length,drawCalls:0,fps:0,performanceVersion:2,characterDetail:'full'};
+  let observedRoll=null,rollHighlightUntil=0,rollHighlightSeat=-1,previousHighlightedSeat=-1;
   const characterEmotes=new Map();
   function celebrate(seat,kind='jump'){
     const room=getRoom();
@@ -453,7 +476,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     const rect=renderHost.getBoundingClientRect();
     if(!rect.width||!rect.height)return;
     const smooth=phoneLayout();
-    renderer.setPixelRatio(Math.min(devicePixelRatio,smooth?1:1.65));
+    renderer.setPixelRatio(Math.min(devicePixelRatio,smooth?1.5:1.65));
     renderer.shadowMap.enabled=!smooth;
     torches.forEach(t=>t.light.visible=!smooth);
     diagnostics.quality=smooth?'mobile-smooth':'full';
@@ -493,7 +516,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       if(!a.g.visible || !el.classList.contains('movable'))continue;
       let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;
       // Project the whole model rather than a small circle at its feet.
-      for(const x of [-.46,.46])for(const y of [0,1.48])for(const z of [-.3,.4]){
+      for(const x of [-.46,.46])for(const y of [0,a.marker.visible?1.8:1.48])for(const z of [-.3,.4]){
         projection.set(x,y,z).applyMatrix4(a.body.matrixWorld).project(camera);
         const px=rect.left+(projection.x*.5+.5)*rect.width;
         const py=rect.top+(-projection.y*.5+.5)*rect.height;
@@ -555,6 +578,22 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     stars.forEach((s,i)=>s.material.emissiveIntensity=.12+(Math.sin(time*2+i)+1)*.1);
     const rect=svg.getBoundingClientRect(),ctm=svg.getScreenCTM();
     const inverse=ctm?.inverse(),room=getRoom(),game=room?.game;
+    const rollKey=game?.lastRoll?room.code+':'+game.lastRoll.id:null;
+    if(rollKey!==observedRoll){
+      if(rollKey!==null&&observedRoll?.startsWith(room.code+':')){rollHighlightSeat=game.lastRoll.seat;rollHighlightUntil=now+1200;}
+      else {rollHighlightUntil=0;rollHighlightSeat=-1;}
+      observedRoll=rollKey;
+    }
+    const highlightedSeat=game&&game.phase!=='done'?(now<rollHighlightUntil?rollHighlightSeat:game.turn):-1;
+    if(highlightedSeat!==previousHighlightedSeat){
+      characterMaterials.forEach((copies,seat)=>copies.forEach(({material,emissive,intensity})=>{
+        const lightSurface=material.color.r+material.color.g+material.color.b>.4;
+        if(seat===highlightedSeat&&lightSurface&&emissive.getHex()===0){material.emissive.set(colors[seat]);material.emissiveIntensity=.14;}
+        else {material.emissive.copy(emissive);material.emissiveIntensity=intensity;}
+      }));
+      previousHighlightedSeat=highlightedSeat;
+    }
+    const highlightedTokens=[],legalTokens=[];
     // Read all CSS transforms before writing projected hit targets. Interleaving
     // these reads/writes previously forced a style recalculation per explorer.
     const transforms=animals.map(a=>getComputedStyle(tokenNodes.get(a.seat+'-'+a.token)).transform);
@@ -586,14 +625,18 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       a.head.rotation.x=-.4;
       a.eyes.scale.y=(time+a.phase)%4.8<.13?.12:1;
       a.feet[0].rotation.x=walking?Math.sin(phase)*.5:0;a.feet[1].rotation.x=walking?-Math.sin(phase)*.5:0;
-      const active=el.classList.contains('active-explorer'),legal=el.classList.contains('movable');
-      a.ring.visible=active||legal;a.ring.material.emissiveIntensity=legal?2:1;
-      a.ring.scale.setScalar(1+Math.sin(time*3)*.08);
+      const active=a.seat===highlightedSeat,legal=el.classList.contains('movable');
+      a.ring.visible=active||legal;
+      a.ring.scale.setScalar((legal?1.15:1)+Math.sin(time*3)*.06);
+      a.halo.visible=active;a.halo.scale.setScalar(1+Math.sin(time*3)*.04);
+      a.marker.visible=legal;a.marker.position.y=1.63+Math.sin(time*4)*.06;
+      if(active)highlightedTokens.push(a.seat+'-'+a.token);
+      if(legal)legalTokens.push(a.seat+'-'+a.token);
       if(el.classList.contains('reacting'))a.body.position.y+=Math.abs(Math.sin(time*7))*.12;
       const emote=activeEmotes.get(a.seat);
       if(emote){
         emote.participants++;
-        a.ring.visible=true;a.ring.material.emissiveIntensity=2.2;
+        a.ring.visible=true;
         if(!reduced.matches){
           const {age,strength,hop}=emote;
           if(emote.kind==='jump'){
@@ -626,6 +669,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       if(inverse&&room&&legal)projectedHit(a,el,matrix,rect,inverse);
     }
     diagnostics.emotes=Array.from(activeEmotes.values()).map(({seat,kind,participants,jumpHeight,strength})=>({seat,kind,participants,jumpHeight,strength}));
+    diagnostics.highlight={seat:highlightedSeat,tokens:highlightedTokens,legalTokens};
     scene.updateMatrixWorld();
     for(const {batch,sources} of batches){
       sources.forEach((source,i)=>{

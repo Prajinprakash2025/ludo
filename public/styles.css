@@ -99,6 +99,8 @@ body.scene-3d{background:#123d2e}
 .scene-3d .emotes .emote-action:disabled{opacity:.55;cursor:wait}
 .scene-3d #board .animal-idle,.scene-3d #board .scenery-motion{animation:none}
 .scene-3d #board>svg *{animation:none!important}
+.scene-3d #board,.scene-3d #board *,button,a{-webkit-tap-highlight-color:transparent}
+.scene-3d #board,button{touch-action:manipulation}
 .scene-3d .world-stage{display:none}
 .scene-3d #room-screen{position:relative;min-height:calc(100dvh - 65px)}
 .scene-3d .game-layout{position:relative;width:100%;max-width:none;height:calc(100dvh - 70px);min-height:600px;padding:0;overflow:hidden;display:block;background:#123e2f;border-radius:20px}

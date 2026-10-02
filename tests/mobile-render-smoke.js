@@ -24,12 +24,13 @@ async (page) => {
       canvasWidth:document.querySelector('#board canvas').width,
       cssWidth:document.querySelector('#board canvas').getBoundingClientRect().width
     }));
-    if(quality.quality!=='mobile-smooth'||Math.abs(quality.canvasWidth-quality.cssWidth)>1)throw new Error('High-DPI phone still renders extra pixels');
+    const pixelRatio=quality.canvasWidth/quality.cssWidth;
+    if(quality.quality!=='mobile-smooth'||Math.abs(pixelRatio-1.5)>.01||quality.characterDetail!=='full')throw new Error('Balanced mobile character quality missing');
     const before=quality.waterTime;
     await phone.waitForFunction(previous=>window.jungleScene.waterTime>previous&&window.jungleScene.fireTime>previous,before);
     await phone.getByRole('button',{name:'Wave with my characters'}).click();
     await phone.waitForFunction(()=>window.jungleScene.emotes?.some(e=>e.kind==='wave'&&e.seat===0&&e.participants===4));
     if(errors.length)throw new Error(errors.join('\n'));
-    return {highDpiMobile:true,offscreenStops:true,visibleResumes:true,waterAndFireAnimate:true,wave:true,quality:quality.quality,pageErrors:errors};
+    return {highDpiMobile:true,pixelRatio,fullCharacterDetail:true,offscreenStops:true,visibleResumes:true,waterAndFireAnimate:true,wave:true,quality:quality.quality,pageErrors:errors};
   } finally {await context.close();}
 }
