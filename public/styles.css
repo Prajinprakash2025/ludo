@@ -178,4 +178,5 @@ body.scene-3d{background:#123d2e}
 @media(max-width:650px){
  .scene-3d #room-screen{min-height:calc(100svh - 52px)}
  .scene-3d .game-layout{height:calc(100svh - 57px)}
+ .scene-3d:has(#nl-badge-frame) .play-panel{bottom:82px}
 }
