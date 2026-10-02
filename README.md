@@ -1,6 +1,16 @@
 # Ludo Loop
 
-A jungle adventure, 2–4 player Ludo game with a real 3D board, live room codes, bots, reconnects, emotes, optional sound, and rematches. Each player uses their own browser.
+A jungle adventure, 2–4 player Ludo game with a real 3D board, live room codes, bots, reconnects, emotes, optional sound, room voice chat, and rematches. Each player uses their own browser.
+
+## Talk while playing
+
+Join a room, tap **Join voice**, and allow the microphone. Friends must each join voice themselves. **Mute** controls your microphone; **Sound on / Hear crew** controls incoming sound. A green ring around a player's portrait shows when they are speaking. **Leave voice** keeps you in the game. Leaving the room or losing the game connection stops the microphone; reconnecting requires another explicit Join voice click. Bots never join voice.
+
+Voice uses native audio-only WebRTC, with echo cancellation and noise suppression requested from the browser. The room socket relays connection messages, while audio uses separate peer connections. There are at most three audio links per player; outgoing audio requests a 24 kbps limit per link. Speaking indicators sample eight times per second, independently of the game rendering loop. Audio is not recorded or stored by this application.
+
+Microphone access needs HTTPS (localhost is also accepted), a supported browser and permission. Open the public site directly in Chrome/Safari if an embedded app browser refuses microphone access. If playback is blocked, tap **Hear crew**. Headphones help when two test devices are beside each other.
+
+The default setup has STUN discovery and **no TURN relay**. Direct calls can work, but some mobile networks/firewalls need a relay. See [voice relay setup and phone testing](DEPLOYMENT.md#voice-chat-update-and-phone-test). Zero lag or universal connectivity is not promised. Four local browser clients exchanged real encoded audio using synthesized microphone tracks in automated testing; physical microphone quality, phone CPU, Bluetooth, and cross-network connectivity still require device testing.
 
 ## Jungle presentation
 
@@ -14,7 +24,7 @@ Three.js renders actual stone tiles, raised camps, animals, palms, trees, grass,
 
 The client bundle contains the renderer and shared board coordinates. No runtime external asset requests are needed. The game engine in game.mjs is unchanged; server.mjs includes optional frontend origin permissions and hosting socket startup for separate deployments. Browsers unable to create a WebGL renderer retain the previous SVG presentation.
 
-Editable client sources are src/app.js and src/world3d.js. Run npm.cmd run build after editing them; public/app.js is generated. Styling is in public/styles.css.
+Editable client sources are src/app.js, src/world3d.js and src/voice.js. Voice signaling is in voice-server.mjs. Run npm.cmd run build after editing client sources; public/app.js is generated. Styling is in public/styles.css.
 
 ## Run
 

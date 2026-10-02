@@ -1,4 +1,5 @@
 node_modules/
+voice-config.json
 output/
 .playwright-cli/
 .env

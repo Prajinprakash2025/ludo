@@ -6,13 +6,14 @@ import { networkInterfaces } from 'node:os';
 import { randomInt, randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import * as rules from './game.mjs';
+import { createVoiceSignaling } from './voice-server.mjs';
 
 const root = fileURLToPath(new URL('./public/',import.meta.url));
 const TURN_MS = 45000;
 const EMOTES = ['Nice move! ✨','Oops! 🙈','Let’s go! 🚀','Good game! 🤝'];
 const MIME = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8'};
 export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, botDelay = 1000,
-  allowedOrigins = process.env.ALLOWED_ORIGINS || '', publicUrl = process.env.PUBLIC_URL || ''} = {}) {
+  allowedOrigins = process.env.ALLOWED_ORIGINS || '', publicUrl = process.env.PUBLIC_URL || '', voiceConfig} = {}) {
   const origins = new Set(allowedOrigins.split(',').map(x => x.trim()).filter(Boolean).map(value => {
     const url = new URL(value);
     if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
@@ -27,9 +28,9 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     const file = files[path];
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','same-origin');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'");
+    res.setHeader('Content-Security-Policy',"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws: wss:; media-src 'self' blob:; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'");
     res.setHeader('Cache-Control','no-cache');
-    if (path === '/health') { res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:true})); return; }
+    if (path === '/health') { res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:true,voiceVersion:1})); return; }
     if (!file) { res.writeHead(404); res.end('Not found'); return; }
     try {
       const ext = file.endsWith('.mjs') ? '.js' : file.slice(file.lastIndexOf('.'));
@@ -37,8 +38,9 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
       res.end(await readFile(root+file));
     } catch { res.writeHead(500); res.end('Unable to load game.'); }
   });
-  const wss = new WebSocketServer({server,maxPayload:4096});
+  const wss = new WebSocketServer({server,maxPayload:24576});
   const send = (ws,data) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data)); };
+  const voice = createVoiceSignaling(send,voiceConfig);
   const names = r => r.seats.map(p => p?.name || 'Player');
   function publicRoom(r) {
     return {code:r.code,owner:r.owner,mode:r.mode,revision:r.revision,
@@ -59,9 +61,11 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     const paused = !r.seats.some(player => player?.ws);
     if (p.ws && p.ws !== ws) { p.ws.room = null; p.ws.close(4001,'Session opened on another tab'); }
     p.ws = ws; ws.room = r; ws.seat = seat;
+    voice.clear(r,p);
     if (paused && r.game && r.game.deadline < Date.now()) deadline(r);
-    send(ws,{type:'joined',code:r.code,token:p.token,seat,id:p.id,shareBase:ws.shareBase});
+    send(ws,{type:'joined',code:r.code,token:p.token,seat,id:p.id,shareBase:ws.shareBase,voiceVersion:1});
     broadcast(r);
+    voice.broadcast(r);
   }
   const cleanName = x => typeof x === 'string' ? x.trim().replace(/[\u0000-\u001f<>]/g,'').slice(0,18) || 'Player' : 'Player';
   function addPlayer(r,ws,name) {
@@ -105,7 +109,9 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     }
     const r = ws.room, p = r?.seats[ws.seat];
     if (!r || !p || p.ws !== ws) throw new Error('Join a room first.');
+    if (m.type.startsWith('voice-')) { voice.handle(ws,m,r,p); return; }
     if (m.type === 'leave') {
+      voice.clear(r,p);
       const oldSeat = ws.seat;
       ws.room = null;
       if (r.game) rules.forfeit(r.game,oldSeat,names(r));
@@ -172,15 +178,36 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     ws.on('pong',() => { ws.isAlive = true; });
     ws.on('message',raw => {
       const now = Date.now();
+      let m;
+      try { m = JSON.parse(raw.toString()); } catch { send(ws,{type:'error',message:'Invalid action.'}); return; }
+      const isVoice = typeof m?.type === 'string' && m.type.startsWith('voice-');
+      if (isVoice) {
+        // Always allow cleanup, even after signaling has exhausted its budget.
+        if (m.type === 'voice-leave') {
+          const p = ws.room?.seats[ws.seat];
+          if (p?.ws === ws) voice.clear(ws.room,p);
+          return;
+        }
+        // ICE bursts never spend the dice/move action budget or close the game socket.
+        if (!ws.voiceWindowAt || now-ws.voiceWindowAt > 5000) { ws.voiceWindowAt = now; ws.voiceCount = 0; ws.voiceControlCount = 0; }
+        if (++ws.voiceCount > 180 || m.type !== 'voice-signal' && ++ws.voiceControlCount > 15) {
+          if (!ws.voiceLimitedAt || now-ws.voiceLimitedAt > 5000) { ws.voiceLimitedAt = now; send(ws,{type:'voice-error',message:'Too many voice changes. Try joining voice again in a few seconds.'}); }
+          return;
+        }
+        try { voice.handle(ws,m,ws.room,ws.room?.seats[ws.seat]); }
+        catch (e) { send(ws,{type:'voice-error',message:e.message}); }
+        return;
+      }
+      if (raw.length > 4096) { send(ws,{type:'error',message:'Action is too large.'}); return; }
       ws.windowAt ??= now; ws.messageCount ??= 0;
       if (now-ws.windowAt > 5000) { ws.windowAt = now; ws.messageCount = 0; }
       if (++ws.messageCount > 40) { ws.close(1008,'Too many actions'); return; }
-      try { handle(ws,JSON.parse(raw.toString())); }
+      try { handle(ws,m); }
       catch (e) { send(ws,{type:'error',message:e.message || 'That action was not accepted.'}); }
     });
     ws.on('close',() => {
       const r = ws.room, p = r?.seats[ws.seat];
-      if (p?.ws === ws) { p.ws = null; r.revision++; broadcast(r); }
+      if (p?.ws === ws) { p.ws = null; voice.clear(r,p); r.revision++; broadcast(r); }
     });
   });
   const clock = setInterval(() => {

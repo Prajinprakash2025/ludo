@@ -177,6 +177,38 @@ PY
 
 After HTTP 200 and `Enabled: False`, run the repair block above once. This sequence succeeded for the user's deployment after the initial delete timeout. The PythonAnywhere package reads the account token from the console environment; the token is never printed or stored in this repository. If disabling also fails, resolve the provider/API error before continuing.
 
+## Voice chat update and phone test
+
+Netlify rebuilds automatically after the voice commit is pushed. The PythonAnywhere backend also needs updating; until then, the new frontend shows **Voice server update pending** and leaves the mic disabled. Run in the existing account's Bash console:
+
+```bash
+source /home/ludoloop/nvm/nvm.sh
+nvm use 22
+cd /home/ludoloop/ludo
+git pull --ff-only
+pa website reload --domain ludoloop.pythonanywhere.com
+curl -sS https://ludoloop.pythonanywhere.com/health
+```
+
+Only run the reload if the pull succeeded. This update adds no packages, so an npm install is unnecessary. Reload clears existing rooms. Successful updated health returns `{"ok":true,"voiceVersion":1}`. Open a fresh room after the update.
+
+### Two real phones
+
+1. Open https://ludoloop.netlify.app directly in each phone's browser, and join the same fresh room.
+2. Tap **Join voice** on each phone and allow the microphone. Prefer headphones, or separate the test devices to avoid feedback.
+3. Confirm both players see **2 in voice**. Speak in both directions; the speaking portrait should light up.
+4. Roll/move while speaking. Check speech delay, board scrolling and dice response. Mute/unmute your mic, then mute/unmute incoming sound separately.
+5. Leave voice and confirm the browser's microphone indicator stops. Rejoin, then leave the room. Reconnecting the game must not silently enable the mic.
+6. First try both on Wi-Fi, then one on mobile data. If the second test cannot connect, configure TURN below; the local browser test cannot prove mobile-network connectivity.
+
+### TURN relay for restrictive networks
+
+By default the app only uses `stun:stun.l.google.com:19302`; **a relay is not configured**. [WebRTC's official TURN guide](https://webrtc.org/getting-started/turn-server) explains why direct connections may need a relay. The PythonAnywhere HTTP backend does not act as a TURN server.
+
+Obtain actual TURN URLs/credentials from a relay provider or your own TURN server. Create `/home/ludoloop/ludo/voice-config.json`, following `voice-config.example.json`, and replace all placeholders with those values. Reload the website afterward. Use UDP plus a TLS/TCP fallback where the provider supports them. File-based configuration works with the current startup command, so the website does not need to be deleted/recreated.
+
+`VOICE_ICE_SERVERS` can alternatively supply the ICE server list as JSON in the server environment, overriding the file. Credentials are sent only to room players who explicitly join voice, but browsers necessarily receive them; use provider quotas and rotate credentials as appropriate. Never put a relay account API key in this file. The private file is ignored by Git and is never included in Netlify's `public/` directory. Provider availability, free quota and cross-network relay delivery need independent verification; no TURN account or paid plan is created by this update.
+
 ## Free account limits
 
 PythonAnywhere currently lists 512 MiB disk space, one web app with one worker and a one-month expiry for new free accounts. Check the account's expiry/renewal controls. Async hosting is beta and its longer-term pricing is undecided; permanent free uptime is not promised by this project.

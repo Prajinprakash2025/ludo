@@ -101,6 +101,16 @@ body.scene-3d{background:#123d2e}
 .scene-3d #board>svg *{animation:none!important}
 .scene-3d #board,.scene-3d #board *,button,a{-webkit-tap-highlight-color:transparent}
 .scene-3d #board,button{touch-action:manipulation}
+.voice-controls{position:relative;z-index:9;background:#173c2ff5;border:1px solid #b69a59;border-radius:12px;padding:6px 10px;color:#fff0c3;max-width:calc(100% - 20px);text-align:center}
+.voice-buttons{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.voice-buttons button{background:#70502e;color:#fff0c3;border:1px solid #b69a59;border-radius:7px;padding:7px 10px;font-size:11px;min-height:34px;white-space:nowrap}
+.voice-buttons button[aria-pressed=true]{background:#344a3b;color:#f4d47f}
+.voice-buttons button:disabled{opacity:.6;cursor:default}
+#voice-status{display:block;font-size:10px;line-height:1.4;margin-top:4px;max-width:440px}
+.voice-indicator{position:absolute;left:5px;top:3px;font-size:10px;line-height:1;color:#97ff83;pointer-events:none}
+.voice-talking .avatar{outline:2px solid #a9ff7b;outline-offset:2px;border-radius:12px;box-shadow:0 0 8px #a9ff7b60}
+.scene-3d .voice-controls{position:fixed;top:3px;left:18px;z-index:11;padding:3px 8px}
+@media(max-width:650px){.scene-3d .voice-controls{position:absolute;top:128px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 20px);padding:5px 7px}.voice-buttons{gap:4px}.voice-buttons button{font-size:10px;padding:6px 8px;min-height:32px}#voice-status{font-size:9px;max-width:330px}.voice-indicator{font-size:8px;left:3px;top:3px}.voice-talking .avatar{outline-offset:0}}
 .scene-3d .world-stage{display:none}
 .scene-3d #room-screen{position:relative;min-height:calc(100dvh - 65px)}
 .scene-3d .game-layout{position:relative;width:100%;max-width:none;height:calc(100dvh - 70px);min-height:600px;padding:0;overflow:hidden;display:block;background:#123e2f;border-radius:20px}

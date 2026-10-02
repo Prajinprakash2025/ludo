@@ -1,6 +1,7 @@
 import { createJungleScene } from './world3d.js';
 import { COLORS, TRACK, LANES, YARDS, SAFE, FINISH } from '../game.mjs';
 import { socketAddress, inviteAddress } from './hosting.js';
+import { createRoomVoice } from './voice.js';
 const backendUrl = typeof __LUDO_BACKEND_URL__ === 'string' ? __LUDO_BACKEND_URL__ : '';
 const $ = id => document.getElementById(id);
 const PALETTE = ['#df5e49','#64b85d','#e9b13e','#409acb'];
@@ -56,6 +57,8 @@ function send(action) {
   if (ws?.readyState !== WebSocket.OPEN) { toast('Reconnecting to the table. One moment…'); return false; }
   ws.send(JSON.stringify(action)); return true;
 }
+const voice = createRoomVoice({send,identity:()=>({id:myId,seat}),notify:toast});
+window.ludoVoice = {snapshot:()=>voice.diagnostics(),stats:()=>voice.stats()};
 function connect() {
   clearTimeout(reconnectTimer);
   const socket = new WebSocket(socketAddress(backendUrl,location.href));
@@ -76,8 +79,11 @@ function connect() {
       visualFresh=true;
       session = {code:m.code,token:m.token,seat:m.seat,id:m.id,shareBase:m.shareBase};
       seat = m.seat; myId = m.id; joining = false;
+      voice.connected(m.voiceVersion);
       try { localStorage.setItem('ludo-session-'+m.code,JSON.stringify(session)); } catch {}
       history.replaceState({},'',location.pathname+'?room='+m.code);
+    } else if (m.type.startsWith('voice-')) {
+      voice.receive(m);
     } else if (m.type === 'state') {
       prepareVisuals(m.room); room = m.room; serverOffset = room.serverTime-Date.now(); render();
     } else if (m.type === 'error') {
@@ -90,6 +96,7 @@ function connect() {
       toast((room?.seats[m.seat]?.name || 'Player')+': '+(emote?emote.icon+' '+emote.label+'!':m.text));
       sound('capture');
     } else if (m.type === 'left') {
+      voice.leave();
       if (session) { try { localStorage.removeItem('ludo-session-'+session.code); } catch {} }
       room = null; session = null; seat = -1; myId = ''; lastRollId = null; lastMoveId = null; lastWinner = null;
       $('welcome').hidden = false; $('room-screen').hidden = true;
@@ -99,6 +106,7 @@ function connect() {
   };
   socket.onclose = e => {
     if (socket !== ws) return;
+    voice.disconnect();
     $('connection-text').textContent = 'Reconnecting…';
     document.querySelector('.connection').classList.remove('online');
     if (e.code === 4001) { retry = false; toast('This player session is open in another tab.'); }
@@ -424,11 +432,12 @@ function renderPlayers() {
     const score=g?.tokens[i].filter(t=>t===FINISH).length || 0;
     if (!p) return '<div class="player-card empty-seat '+COLORS[i]+'"><div class="avatar">+</div><div class="player-info"><h3>Seat for a friend</h3><p>'+LABELS[i]+' is waiting</p>'+(host&&!g?'<button class="add-bot" data-bot="'+i+'">Add a bot</button>':'')+'</div></div>';
     const scoreHtml = g ? '<div class="player-score">'+Array.from({length:4},(_,k)=>'<i class="'+(k<score?'done':'')+'"></i>').join('')+'</div>' : '';
-    return '<div class="player-card '+COLORS[i]+(g&&g.turn===i&&g.phase!=='done'?' active':'')+'"><div class="avatar">'+('<svg viewBox="-.6 -1.12 1.2 1.5" aria-hidden="true">'+animal(i)+'</svg>')+'</div><div class="player-info"><h3>'+escape(p.name)+'<small>'+(i===seat?'YOU':p.bot?'BOT':p.id===room.owner?'HOST':'')+'</small></h3><p>'+(g ? (g.active.includes(i)?score+' / 4 home · '+g.captures[i]+' captures':'Left the race') : p.connected?'Ready for the race':'Reconnecting…')+'</p>'+scoreHtml+(host&&p.bot&&!g?'<button class="add-bot" data-bot="'+i+'">Remove bot</button>':'')+'</div>'+'<button class="seat-dice" data-seat-dice="'+i+'" aria-label="Roll for '+escape(p.name)+'" disabled>'+(['⚀','⚁','⚂','⚃','⚄','⚅'][(g?.lastRoll?.seat===i?g.lastRoll.value:1)-1])+'</button>'+'</div>';
+    return '<div class="player-card '+COLORS[i]+(g&&g.turn===i&&g.phase!=='done'?' active':'')+'"><span class="voice-indicator" data-voice-seat="'+i+'" hidden></span><div class="avatar">'+('<svg viewBox="-.6 -1.12 1.2 1.5" aria-hidden="true">'+animal(i)+'</svg>')+'</div><div class="player-info"><h3>'+escape(p.name)+'<small>'+(i===seat?'YOU':p.bot?'BOT':p.id===room.owner?'HOST':'')+'</small></h3><p>'+(g ? (g.active.includes(i)?score+' / 4 home · '+g.captures[i]+' captures':'Left the race') : p.connected?'Ready for the race':'Reconnecting…')+'</p>'+scoreHtml+(host&&p.bot&&!g?'<button class="add-bot" data-bot="'+i+'">Remove bot</button>':'')+'</div>'+'<button class="seat-dice" data-seat-dice="'+i+'" aria-label="Roll for '+escape(p.name)+'" disabled>'+(['⚀','⚁','⚂','⚃','⚄','⚅'][(g?.lastRoll?.seat===i?g.lastRoll.value:1)-1])+'</button>'+'</div>';
   }).join('');
   document.querySelectorAll('[data-seat-dice]').forEach(b=>{b.onclick=rollNow;});
   document.querySelectorAll('[data-bot]').forEach(b => { b.onclick=()=>send({type:'bot',seat:Number(b.dataset.bot)}); });
   $('crew-count').textContent = room.seats.filter(Boolean).length+' / 4';
+  voice.paintPlayers();
 }
 function showDice(value) {
   const positions={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
