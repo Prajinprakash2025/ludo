@@ -395,13 +395,15 @@ function paintTokens() {
   const g=room?.game,locations=new Map();
   for(let s=0;s<4;s++) for(let t=0;t<4;t++) {
     const key=s+'-'+t,el=tokenNodes.get(key),p=visualPositions.get(key)??g?.tokens[s][t]??-1;
-    const [r,c]=position(s,t,p),location=r+','+c;
+    const winning=g?.phase==='celebration'&&g.celebration.seats.includes(s);
+    const [r,c]=position(s,t,winning?-1:p),location=r+','+c;
     if(!locations.has(location)) locations.set(location,[]);
-    if(p!==FINISH) locations.get(location).push({el,r,c,p});
-    el.classList.toggle('finished',p===FINISH&&!el.classList.contains('walking'));
-    const active=!!room?.seats[s] && (!g || g.active.includes(s));
+    if(p!==FINISH||winning) locations.get(location).push({el,r,c,p});
+    el.classList.toggle('finished',!winning&&p===FINISH&&!el.classList.contains('walking'));
+    el.classList.toggle('victory-dance',!!winning);
+    const active=winning||!!room?.seats[s] && (!g || g.active.includes(s));
     el.style.opacity=active?'1':'.2';
-    el.classList.toggle('active-explorer',active&&g?.turn===s&&g.phase!=='done');
+    el.classList.toggle('active-explorer',active&&g?.turn===s&&['roll','move','waiting'].includes(g.phase));
     const movable=!!g&&g.turn===seat&&s===seat&&g.phase==='move'&&g.legal.includes(t)&&Date.now()>=diceAnimatingUntil&&ws?.readyState===WebSocket.OPEN&&!visualBusy;
     el.classList.toggle('movable',movable);el.setAttribute('role','button');el.setAttribute('tabindex',movable?'0':'-1');el.setAttribute('aria-disabled',String(!movable));
     el.setAttribute('aria-label',LABELS[s]+' token '+(t+1)+(p<0?' in camp':p===FINISH?' finished':' at step '+p)+(movable?', can move':''));
@@ -430,9 +432,10 @@ function renderPlayers() {
   document.body.classList.toggle('playing',!!g && g.phase!=='done');
   $('players').innerHTML = room.seats.map((p,i) => {
     const score=g?.tokens[i].filter(t=>t===FINISH).length || 0;
+    const placing=g?.placements?.find(p=>p.seat===i);
     if (!p) return '<div class="player-card empty-seat '+COLORS[i]+'"><div class="avatar">+</div><div class="player-info"><h3>Seat for a friend</h3><p>'+LABELS[i]+' is waiting</p>'+(host&&!g?'<button class="add-bot" data-bot="'+i+'">Add a bot</button>':'')+'</div></div>';
     const scoreHtml = g ? '<div class="player-score">'+Array.from({length:4},(_,k)=>'<i class="'+(k<score?'done':'')+'"></i>').join('')+'</div>' : '';
-    return '<div class="player-card '+COLORS[i]+(g&&g.turn===i&&g.phase!=='done'?' active':'')+'"><span class="voice-indicator" data-voice-seat="'+i+'" hidden></span><div class="avatar">'+('<svg viewBox="-.6 -1.12 1.2 1.5" aria-hidden="true">'+animal(i)+'</svg>')+'</div><div class="player-info"><h3>'+escape(p.name)+'<small>'+(i===seat?'YOU':p.bot?'BOT':p.id===room.owner?'HOST':'')+'</small></h3><p>'+(g ? (g.active.includes(i)?score+' / 4 home · '+g.captures[i]+' captures':'Left the race') : p.connected?'Ready for the race':'Reconnecting…')+'</p>'+scoreHtml+(host&&p.bot&&!g?'<button class="add-bot" data-bot="'+i+'">Remove bot</button>':'')+'</div>'+'<button class="seat-dice" data-seat-dice="'+i+'" aria-label="Roll for '+escape(p.name)+'" disabled>'+(['⚀','⚁','⚂','⚃','⚄','⚅'][(g?.lastRoll?.seat===i?g.lastRoll.value:1)-1])+'</button>'+'</div>';
+    return '<div class="player-card '+COLORS[i]+(g&&g.turn===i&&['roll','move','waiting'].includes(g.phase)?' active':'')+(placing?' placed':'')+'"><span class="voice-indicator" data-voice-seat="'+i+'" hidden></span><div class="avatar">'+('<svg viewBox="-.6 -1.12 1.2 1.5" aria-hidden="true">'+animal(i)+'</svg>')+'</div><div class="player-info"><h3>'+escape(p.name)+'<small>'+(i===seat?'YOU':p.bot?'BOT':p.id===room.owner?'HOST':'')+'</small></h3><p>'+(g ? (placing?(placing.place===1?'🥇 First place':'🥈 Second place'):g.active.includes(i)?score+' / 4 home · '+g.captures[i]+' captures':'Left the race') : p.connected?'Ready for the race':'Reconnecting…')+'</p>'+scoreHtml+(host&&p.bot&&!g?'<button class="add-bot" data-bot="'+i+'">Remove bot</button>':'')+'</div>'+'<button class="seat-dice" data-seat-dice="'+i+'" aria-label="Roll for '+escape(p.name)+'" disabled>'+(['⚀','⚁','⚂','⚃','⚄','⚅'][(g?.lastRoll?.seat===i?g.lastRoll.value:1)-1])+'</button>'+'</div>';
   }).join('');
   document.querySelectorAll('[data-seat-dice]').forEach(b=>{b.onclick=rollNow;});
   document.querySelectorAll('[data-bot]').forEach(b => { b.onclick=()=>send({type:'bot',seat:Number(b.dataset.bot)}); });
@@ -485,11 +488,26 @@ function render() {
     lastMoveId=g.lastMove.id;
   }
   $('live-announcement').textContent=g.messages[0];
-  if (g.phase==='done') {
-    const winner=room.seats[g.winner]?.name||'Player';
+  const dancing=g.phase==='celebration';
+  if(dancing){
+    $('turn-tag').textContent=g.celebration.final?'TWO WINNERS!':'FIRST PLACE!';
+    $('turn-name').textContent=g.celebration.final?'The winners take the stage.':g.placements[0].name+' takes a bow!';
+    $('turn-help').textContent=g.celebration.final?'20 seconds of victory dancing. The race is complete.':'A 15-second dance, then the race for second place continues.';
+    $('mobile-turn').textContent=$('turn-tag').textContent;
+    $('mobile-help').textContent='Enjoy the victory dance';
+    $('mobile-roll').textContent='Dancing…';$('roll').textContent='Victory dance…';
     $('winner-layer').hidden=false;
+    $('winner-layer').classList.add('dance-banner');
+    $('winner-layer').classList.remove('waiting-flight');
+    $('winner-layer').innerHTML='<div class="winner-tag">'+(g.celebration.final?'🥇 + 🥈 VICTORY PARTY':'🥇 FIRST PLACE')+'</div><h2>'+(g.celebration.final?'Our jungle winners!':escape(g.placements[0].name)+' wins!')+'</h2><p id="victory-quip"></p><p><span id="dance-countdown"></span> · '+(g.celebration.final?'Final celebration':'Second place up next')+'</p>';
+    if(lastWinner!==g.celebration.startedAt){lastWinner=g.celebration.startedAt;celebrate();sound('win');}
+  } else if (g.phase==='done') {
+    const winner=g.placements?.[0]?.name||room.seats[g.winner]?.name||'Player';
+    $('winner-layer').hidden=false;
+    $('winner-layer').classList.remove('dance-banner');
     $('winner-layer').classList.toggle('waiting-flight',visualBusy||visualQueue.length>0);
-    $('winner-layer').innerHTML='<div class="winner-tag">JUNGLE CHAMPION</div><div class="trophy">🏆</div><h2>'+escape(winner)+' wins!</h2><p>Four tokens home. A whole lot of glory.<br>Same crew, another race?</p>'+(host?'<button id="rematch" class="primary">One more game <span>→</span></button>':'<p>Waiting for the host to start a rematch.</p>');
+    const standings=(g.placements||[]).map(p=>'<li>'+(p.place===1?'🥇 First':'🥈 Second')+' — '+escape(p.name)+'</li>').join('');
+    $('winner-layer').innerHTML='<div class="winner-tag">JUNGLE CHAMPION</div><div class="trophy">🏆</div><h2>'+escape(winner)+' wins!</h2><ol class="standings">'+standings+'</ol><p>Same crew, another race?</p>'+(host?'<button id="rematch" class="primary">One more game <span>→</span></button>':'<p>Waiting for the host to start a rematch.</p>');
     if ($('rematch')) $('rematch').onclick=()=>send({type:'rematch'});
     if (lastWinner!==g.winner) { lastWinner=g.winner; celebrate(); sound('win'); }
   } else { $('winner-layer').hidden=true; lastWinner=null; }
@@ -499,8 +517,15 @@ function updateTimer() {
   if (!room?.game) return;
   const g=room.game;
   const seconds=Math.max(0,Math.ceil((g.deadline-Date.now()-serverOffset)/1000));
+  if($('dance-countdown')) $('dance-countdown').textContent=seconds+'s';
+  if(g.phase==='celebration'&&$('victory-quip')){
+    const age=Math.max(0,Date.now()+serverOffset-g.celebration.startedAt);
+    const quips=['Catch me if you can! 😜','Oops… stuck the landing! 🤸','Keep up, jungle crew! 😉','Victory looks good on us! ✨'];
+    $('victory-quip').textContent=quips[Math.floor(age/3500)%quips.length];
+  }
   $('timer').textContent=g.phase==='done'?'':seconds+'s';
-  $('timer-fill').style.width=(g.phase==='done'?0:Math.min(100,seconds/45*100))+'%';
+  const duration=g.phase==='celebration'?(g.celebration.endsAt-g.celebration.startedAt)/1000:45;
+  $('timer-fill').style.width=(g.phase==='done'?0:Math.min(100,seconds/duration*100))+'%';
 }
 setInterval(updateTimer,250);
 function celebrate() {
@@ -514,5 +539,5 @@ function celebrate() {
   setTimeout(()=>{ $('confetti').innerHTML=''; },4500);
 }
 paintTokens(); showDice(6);
-const jungleView=createJungleScene({board:$('board'),tokenNodes,getRoom:()=>room,getSeat:()=>seat,colors:PALETTE,track:TRACK,lanes:LANES,yards:YARDS,safe:SAFE});
+const jungleView=createJungleScene({board:$('board'),tokenNodes,getRoom:()=>room,getSeat:()=>seat,getServerTime:()=>Date.now()+serverOffset,colors:PALETTE,track:TRACK,lanes:LANES,yards:YARDS,safe:SAFE});
 connect();

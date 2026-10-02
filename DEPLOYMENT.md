@@ -222,3 +222,16 @@ PythonAnywhere currently lists 512 MiB disk space, one web app with one worker a
 - [PythonAnywhere free account limits](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)
 - [PythonAnywhere outbound allowlist](https://www.pythonanywhere.com/whitelist/)
 - [Netlify build environment variables](https://docs.netlify.com/build/configure-builds/environment-variables/)
+
+## Updating the two-place race and victory dances
+
+This update changes both frontend and backend. Netlify rebuilds after GitHub main is pushed. In the existing PythonAnywhere Bash console run:
+
+```bash
+source /home/ludoloop/nvm/nvm.sh
+nvm use 22
+cd /home/ludoloop/ludo
+git pull --ff-only && pa website reload --domain ludoloop.pythonanywhere.com
+```
+
+Keep the existing startup command and private voice-config.json. Reload clears RAM rooms; refresh every player's page and create a fresh room. First place dances alone for 15 seconds, then the race continues for second. Second place ends the race, both winning crews dance for 20 seconds, and the host can rematch. No third place is played.

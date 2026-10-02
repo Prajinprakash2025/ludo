@@ -190,3 +190,19 @@ body.scene-3d{background:#123d2e}
  .scene-3d .game-layout{height:calc(100svh - 57px)}
  .scene-3d:has(#nl-badge-frame) .play-panel{bottom:82px}
 }
+/* Compact celebration card leaves the dancing crews visible. */
+.scene-3d .winner-layer.dance-banner,.winner-layer.dance-banner{inset:44% 24% auto;padding:10px 12px;border-radius:18px;box-shadow:0 5px 20px #071c17a0;pointer-events:none;backdrop-filter:none;background:#173727e8}
+.winner-layer.dance-banner h2{font-size:20px;margin:5px 0;letter-spacing:-.5px}
+.winner-layer.dance-banner p{font-size:11px;margin:0}
+.standings{list-style:none;padding:0;margin:0 0 16px;color:#ffedbd;line-height:2;font-weight:700}
+.player-card.placed{border-color:#f9d977}
+.webgl-fallback .token.victory-dance .animal-idle{animation:victory-bounce .7s ease-in-out infinite}
+.webgl-fallback .explorer-1.victory-dance .animal-idle{animation:victory-waddle .8s ease-in-out infinite}
+.webgl-fallback .explorer-2.victory-dance .animal-idle{animation:victory-prance .65s ease-in-out infinite}
+.webgl-fallback .explorer-3.victory-dance .animal-idle{animation:victory-disco .7s ease-in-out infinite}
+@keyframes victory-bounce{50%{transform:translateY(-.15px) rotate(8deg)}}
+@keyframes victory-waddle{25%{transform:translateX(-.12px) rotate(-14deg)}75%{transform:translateX(.12px) rotate(14deg)}}
+@keyframes victory-prance{50%{transform:translateY(-.3px) rotate(-10deg)}}
+@keyframes victory-disco{25%{transform:translateX(-.18px) rotate(10deg)}75%{transform:translateX(.18px) rotate(-10deg)}}
+@media(max-width:650px){.scene-3d .winner-layer.dance-banner{left:13%;right:13%;padding:8px}.winner-layer.dance-banner h2{font-size:17px}.winner-layer.dance-banner p{font-size:9px}}
+@media(prefers-reduced-motion:reduce){.token.victory-dance .animal-idle{animation:none!important}}

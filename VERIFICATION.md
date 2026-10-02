@@ -79,3 +79,21 @@ The fixture is test-only. The normal game server continues on port 4173.
 - Four real browser contexts on separate frontend/backend origins exchanged synthesized microphone audio through twelve actual Opus/RTP receive paths. Received packets, bytes, samples and nonzero audio energy were checked for each path. Muting yielded zero received-energy increase; unmuting restored audio. Shared dice/token entry, all speaking portraits, speaker mute, permission-denied recovery, blocked-autoplay recovery, voice rejoin, socket reconnect, mic cleanup on room exit, mobile overflow and zero page errors passed.
 - Desktop/mobile screenshots in ignored output/playwright/voice-desktop.png and voice-mobile.png were visually inspected. Desktop voice controls occupy the header so they do not cover board tiles; mobile controls occupy the water gap below player cards.
 - The default config uses STUN discovery only. No TURN account/credentials were provisioned and cross-network relay delivery has not been tested. Optional private voice-config.json supports a provider relay without replacing the existing PythonAnywhere startup command. The user will run the backend pull/reload commands and test two physical phones; physical microphone quality, phone lag and mobile-network connectivity remain unverified.
+
+### Two-place race and comic victory celebrations — 2 October 2026
+
+- First place pauses the dice for 15 seconds and celebrates only that player's four characters. The remaining seats then play for second place, requiring all four tokens home. Second place stops the race; both winning crews celebrate for 20 seconds, followed by a two-place result and host rematch. No third place is awarded.
+- Bear belly-clap, Panda waddle/shimmy, Deer prance/twirl and Fox disco routines use existing model joints. All include comic flips, soft landings, winks and playful victory quips. Automatic dances affect only placed crews. Reduced motion uses a stationary victory pose. No new geometry, lights or render passes are added.
+- Server timestamps control both celebrations. Dice/move/timeout/bot actions cannot advance the game during a dance; resume preserves the end time. A finished player's name/place remains recorded after departure. A lone remaining player still has to complete second place. Voice signaling remains available during celebrations.
+- All 21 engine, socket, hosting and voice tests pass; syntax and build checks pass. Deterministic simulations finish with exactly two distinct players and both sets of four tokens home. Socket tests cover the timed pause, rejected rolls, voice during a pause, reconnect, second place, premature rematch rejection and a clean rematch.
+- PythonAnywhere must pull/reload this update because the game rules and server clock changed. Reload clears existing rooms; start a fresh room after updating. Physical-phone animation quality/performance remains for the user to assess.
+
+### Live TURN setup — 2 October 2026
+
+- The user saved private Metered relay credentials in PythonAnywhere's ignored voice-config.json and reloaded. A live signaling probe confirmed four TURN endpoints including TLS/TCP fallback; credentials were neither printed nor committed.
+- Two live browser contexts forced TLS-only relay connections. Both selected relay candidates using TLS and received actual synthesized Opus packets, bytes, samples and positive audio energy in both directions. This is a real relay test, not a test of two physical phones or their microphones.
+
+### Victory browser verification — 2 October 2026
+
+- Four real browser contexts, including a 390x844 high-DPI touch viewport, passed first-winner-only four-piece dancing, actual somersault body rotation with airborne height, dice pause, refreshed rank retention, continuation for second, exactly two final winners, the 20-second finale, two-row standings, rematch reset, all four distinct animal routines and reduced-motion poses. No page errors occurred. Screenshots in output/playwright/victory-first-mobile.png, victory-final-mobile.png and victory-deer-fox-desktop.png were captured; the mobile and desktop compositions were inspected.
+

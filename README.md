@@ -58,7 +58,8 @@ This project is not automatically published by running it locally. Local rooms a
 - 45 seconds per action. A timeout passes the turn; nobody is eliminated for poor strategy.
 - An intentional departure forfeits that player. Disconnected players can reconnect.
 - Server uses Node's cryptographic random number generator and enforces dice values, turns, tokens and revisions. Invalid and stale requests do not move tokens. The browser does not determine dice outcomes.
-- First player to bring four tokens home wins. The host can start a rematch.
+- First player to bring four tokens home gets first place and a 15-second solo crew dance. Dice pause for the dance, then the remaining players race for second place. Second place requires all four tokens home, even in a two-player game. Once second place is earned, the race ends: both winning crews dance for 20 seconds, then the host can start a rematch. There is no third place.
+- Bear belly-claps, Panda waddles and shimmies, Deer prances and twirls, and Fox does disco steps. Each routine also includes comic somersaults, soft bounce landings and a cheeky victory pose. Only winning crews join the automatic victory dances; timers are shared by all clients and survive refresh. Reduced motion shows a celebration pose.
 
 ## Verify
 

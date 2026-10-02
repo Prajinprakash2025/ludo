@@ -82,10 +82,13 @@ async (page) => {
   await steps(guest,0,9);
   if(await token(guest,0).evaluate(el=>el.getAnimations({subtree:true}).length)) throw new Error('Reduced motion still animates');
   await guest.emulateMedia({reducedMotion:'no-preference'});
-  await setup('win');await observe(page,0,3);await play(page,0,3);
+  await setup('podium');await observe(page,0,3);await play(page,0,3);
   equal(await steps(page,0,56,3),[55,56],'Exact winning move');
   await page.waitForFunction(()=>!document.getElementById('winner-layer').hidden&&!document.getElementById('winner-layer').classList.contains('waiting-flight'));
   if(!await page.getByRole('heading',{name:'Bear QA wins!'}).count()) throw new Error('Winner missing');
+  await guest.waitForFunction(()=>!document.getElementById('roll').disabled,null,{timeout:18000});
+  await play(guest,1,3);
+  await page.locator('#rematch').waitFor({state:'visible',timeout:23000});
   await page.locator('#rematch').click();
   await page.waitForFunction(()=>document.querySelector('#board .token[data-seat="0"][data-token="3"]').dataset.visualStep==='-1');
   if(await page.locator('#board .walking').count()) throw new Error('Rematch replayed old move');

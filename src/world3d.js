@@ -2,7 +2,7 @@ import * as T from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // A visual scene only: token routes and legal moves remain in the existing client.
-export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track,lanes,yards,safe}) {
+export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTime=()=>Date.now(),colors,track,lanes,yards,safe}) {
   const phoneLayout=()=>innerWidth<650 || matchMedia('(pointer: coarse)').matches;
   const mobile=phoneLayout(), reduced=matchMedia('(prefers-reduced-motion: reduce)');
   let renderer;
@@ -584,7 +584,8 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       else {rollHighlightUntil=0;rollHighlightSeat=-1;}
       observedRoll=rollKey;
     }
-    const highlightedSeat=game&&game.phase!=='done'?(now<rollHighlightUntil?rollHighlightSeat:game.turn):-1;
+    const victory=game?.phase==='celebration' && getServerTime()<game.celebration.endsAt ? game.celebration : null;
+    const highlightedSeat=game&&['roll','move','waiting'].includes(game.phase)?(now<rollHighlightUntil?rollHighlightSeat:game.turn):-1;
     if(highlightedSeat!==previousHighlightedSeat){
       characterMaterials.forEach((copies,seat)=>copies.forEach(({material,emissive,intensity})=>{
         const lightSurface=material.color.r+material.color.g+material.color.b>.4;
@@ -605,20 +606,28 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       const hop=emote.kind==='jump'&&!reduced.matches&&age>.16&&age<1.9?Math.sin(Math.PI*((age-.16)%.58/.58)):0;
       activeEmotes.set(seat,{seat,kind:emote.kind,age,strength,hop,jumpHeight:hop*.7,participants:0});
     }
+    if(victory) for(const seat of victory.seats){
+      const age=Math.max(0,(getServerTime()-victory.startedAt)/1000);
+      const duration=(victory.endsAt-victory.startedAt)/1000;
+      activeEmotes.set(seat,{seat,kind:'victory',age,strength:reduced.matches?0:Math.max(0,Math.min(1,age/.25,(duration-age)/.4)),hop:0,jumpHeight:0,participants:0});
+    }
     for(const [index,a] of animals.entries()){
       const el=tokenNodes.get(a.seat+'-'+a.token),transform=transforms[index];
       const matrix=transform==='none'?new DOMMatrix():new DOMMatrix(transform);
       const walking=el.classList.contains('walking'),finished=el.classList.contains('finished');
-      a.g.visible=!room||(!finished && !!room?.seats[a.seat]&&(!game||game.active.includes(a.seat)));
+      const winning=!!victory?.seats.includes(a.seat);
+      a.g.visible=winning||!room||(!finished && !!room?.seats[a.seat]&&(!game||game.active.includes(a.seat)));
       if(!a.g.visible)continue;
-      const p=Number(el.dataset.visualStep),scale=p<0?1.25:.88;
+      const p=Number(el.dataset.visualStep),scale=winning||p<0?1.25:.88;
       if(reduced.matches)a.g.scale.setScalar(scale);
       else a.g.scale.setScalar(T.MathUtils.lerp(a.g.scale.x,scale,.2));
       a.g.position.set(matrix.e-7.5,.5,matrix.f-7.5);
+      if(winning){const [r,c]=yards[a.seat][a.token];a.g.position.set(c-7.5,.5,r-7.5);}
       const phase=time*(walking?[14,12,15,18][a.seat]:2)+a.phase;
+      a.body.position.x=0;
       a.body.position.y=walking?Math.abs(Math.sin(phase))*(a.seat===2?.16:.095):Math.sin(phase)*.017;
       a.body.rotation.z=walking?Math.sin(phase)*.06:Math.sin(time*.8+a.phase)*.016;
-      a.body.rotation.y=0;a.body.scale.set(1,1,1);
+      a.body.rotation.x=0;a.body.rotation.y=0;a.body.scale.set(1,1,1);
       a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*.1);
       a.head.rotation.y=Math.sin(time*.7+a.phase)*.08;
       a.head.rotation.z=Math.sin(time*.9+a.phase)*.026;
@@ -637,6 +646,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       if(emote){
         emote.participants++;
         a.ring.visible=true;
+        if(emote.kind==='victory'&&reduced.matches){a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*1.3);a.halo.visible=true;}
         if(!reduced.matches){
           const {age,strength,hop}=emote;
           if(emote.kind==='jump'){
@@ -649,6 +659,50 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
             a.eyes.scale.y=1-hop*.35;
             a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*(1.95+Math.sin(age*15)*.22)*strength);
             a.feet.forEach((foot,i)=>foot.rotation.x+=hop*(i?.45:-.35));
+          }else if(emote.kind==='victory'){
+            // Each animal has its own routine, using only existing body joints.
+            const beat=age*7+a.token*.3,sway=Math.sin(beat),step=Math.sin(beat+Math.PI/2);
+            a.halo.visible=true;
+            if(a.seat===0){ // Bear: belly bounce and big alternating claps.
+              a.body.position.y+=Math.abs(sway)*.16*strength;
+              a.body.rotation.z=sway*.13*strength;
+              a.body.scale.set(1+step*.04*strength,1-step*.04*strength,1);
+              a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*(1.2+sway*.65)*strength);
+            }else if(a.seat===1){ // Panda: playful waddle and shoulder shimmy.
+              a.body.position.x=sway*.13*strength;
+              a.body.rotation.z=sway*.24*strength;a.head.rotation.z=-sway*.2*strength;
+              a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*(1+Math.sin(beat+i*Math.PI)*.8)*strength);
+            }else if(a.seat===2){ // Deer: light prancing with a gentle twirl.
+              a.body.position.y+=Math.abs(sway)*.3*strength;
+              a.body.rotation.y=Math.sin(age*2)*.85*strength;
+              a.body.rotation.z=step*.1*strength;
+              a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*1.7*strength);
+            }else{ // Fox: side steps, head bob and disco arms.
+              a.body.position.x=sway*.18*strength;
+              a.body.rotation.y=step*.5*strength;a.head.rotation.x+=sway*.15*strength;
+              a.arms[0].rotation.z=-(1.7+step*.7)*strength;
+              a.arms[1].rotation.z=(1.7-step*.7)*strength;
+            }
+            a.feet.forEach((foot,i)=>foot.rotation.x=Math.sin(beat+i*Math.PI)*.55*strength);
+            // A comic flip, soft landing, then a cheeky victory pose each cycle.
+            const phrase=(age+a.token*.18)%7;
+            if(phrase>=2&&phrase<3.4){
+              const f=(phrase-2)/1.4,air=Math.sin(Math.PI*f);
+              a.body.position.y+=air*1.9*strength;
+              a.body.rotation.x=(a.seat%2?1:-1)*f*Math.PI*2*strength;
+              a.body.rotation.z*=.2;
+              a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*2.2*strength);
+              a.feet.forEach(foot=>foot.rotation.x=-.6*air*strength);
+            }else if(phrase>=3.4&&phrase<3.8){
+              const squash=Math.sin((phrase-3.4)/.4*Math.PI)*.16*strength;
+              a.body.scale.set(1+squash,1-squash,1+squash*.5);
+            }else if(phrase>=4&&phrase<6){
+              a.body.rotation.y=Math.sin(phrase*3)*.5*strength;
+              a.head.rotation.z=Math.sin(phrase*9)*.16*strength;
+              a.arms[1].rotation.z=2.05*strength;
+              a.arms[0].rotation.z=-.3*strength;
+              a.eyes.scale.y=(phrase%1<.18)?.15:1;
+            }
           }else if(emote.kind==='dance'){
             const beat=age*10,sway=Math.sin(beat)*strength;
             a.body.position.y+=Math.abs(Math.sin(beat))*.11*strength;
@@ -669,6 +723,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       if(inverse&&room&&legal)projectedHit(a,el,matrix,rect,inverse);
     }
     diagnostics.emotes=Array.from(activeEmotes.values()).map(({seat,kind,participants,jumpHeight,strength})=>({seat,kind,participants,jumpHeight,strength}));
+    diagnostics.victory= victory ? {seats:victory.seats,final:victory.final,endsAt:victory.endsAt,routines:victory.seats.map(s=>['belly-clap','waddle-shimmy','prance-twirl','disco-step'][s]),flips:animals.filter(a=>victory.seats.includes(a.seat)).map(a=>({seat:a.seat,token:a.token,rotation:a.body.rotation.x,height:a.body.position.y}))} : null;
     diagnostics.highlight={seat:highlightedSeat,tokens:highlightedTokens,legalTokens};
     scene.updateMatrixWorld();
     for(const {batch,sources} of batches){

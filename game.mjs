@@ -25,6 +25,7 @@ export function createGame(seats) {
   return {
     tokens: COLORS.map(() => [-1,-1,-1,-1]), active, turn: active[0],
     phase: 'roll', dice: null, sixes: 0, winner: null, revision: 0,
+    placements: [], celebration: null,
     legal: [], lastRoll: null, lastMove: null, deadline: 0,
     captures: [0,0,0,0], messages: ['The race is on. Roll a six to leave your nest!']
   };
@@ -41,7 +42,7 @@ function say(g, text) {
   g.messages = g.messages.slice(0,8);
 }
 export function advance(g) {
-  if (g.phase === 'done') return;
+  if (g.phase === 'done' || g.phase === 'celebration') return;
   const at = g.active.indexOf(g.turn);
   g.turn = g.active[(at+1)%g.active.length];
   g.phase = 'roll'; g.dice = null; g.legal = []; g.sixes = 0;
@@ -73,7 +74,7 @@ export function finishNoMove(g) {
   if (g.dice === 6) { g.phase = 'roll'; g.dice = null; g.legal = []; g.revision++; }
   else advance(g);
 }
-export function move(g, token, names) {
+export function move(g, token, names, now = Date.now()) {
   if (!Number.isInteger(token) || !legalMoves(g).includes(token)) throw new Error('That token cannot move. Choose a glowing token.');
   const seat = g.turn, old = g.tokens[seat][token];
   const next = old === -1 ? 0 : old+g.dice;
@@ -92,8 +93,15 @@ export function move(g, token, names) {
   g.lastMove = {seat,token,old,next,captured,id:g.revision+1};
   g.revision++;
   if (next === FINISH && g.tokens[seat].every(p => p === FINISH)) {
-    g.winner = seat; g.phase = 'done'; g.legal = [];
-    say(g,names[seat]+' brought all four tokens home. Champion!');
+    const nextSeat = g.active[(g.active.indexOf(seat)+1)%g.active.length];
+    g.placements.push({seat,name:names[seat],place:g.placements.length+1});
+    g.winner ??= seat;
+    g.active = g.active.filter(s => s !== seat);
+    const final = g.placements.length === 2 || !g.active.length;
+    const duration = final ? 20000 : 15000;
+    g.celebration = {id:g.revision,seats:final?g.placements.map(p=>p.seat):[seat],startedAt:now,endsAt:now+duration,final};
+    g.turn = nextSeat; g.phase = 'celebration'; g.legal = []; g.dice = null; g.sixes = 0;
+    say(g,names[seat]+' finished '+(g.placements.length===1?'first! A 15-second victory dance.':'second! Both winners dance for 20 seconds.'));
     return {win:true,captured};
   }
   let text = names[seat]+(old === -1 ? ' launched a token!' : ' moved '+g.dice+' spaces.');
@@ -107,9 +115,16 @@ export function move(g, token, names) {
   return {captured};
 }
 export function skip(g, name) {
-  if (g.phase === 'done') return;
+  if (g.phase === 'done' || g.phase === 'celebration') return;
   say(g,name+' missed the turn. Passing the dice.');
   advance(g);
+}
+export function finishCelebration(g, now = Date.now()) {
+  if (g.phase !== 'celebration' || now < g.celebration.endsAt) return false;
+  g.phase = g.celebration.final || !g.active.length ? 'done' : 'roll';
+  g.celebration = null; g.dice = null; g.legal = []; g.sixes = 0; g.revision++;
+  if (g.phase === 'roll') say(g,'The race continues! Second place is still waiting.');
+  return true;
 }
 export function forfeit(g, seat, names) {
   if (!g.active.includes(seat) || g.phase === 'done') return;
@@ -117,7 +132,12 @@ export function forfeit(g, seat, names) {
   g.active = g.active.filter(x => x !== seat);
   g.tokens[seat] = [-1,-1,-1,-1];
   say(g,names[seat]+' left the race.');
-  if (g.active.length === 1) {
+  if (g.phase === 'celebration') {
+    if (g.turn === seat) g.turn = next;
+    if (!g.active.length) g.celebration.final = true;
+  } else if (!g.active.length) {
+    g.phase = 'done'; g.legal = [];
+  } else if (g.active.length === 1 && !g.placements.length) {
     g.winner = g.active[0]; g.turn = g.winner; g.phase = 'done'; g.legal = [];
   } else if (g.turn === seat) {
     g.turn = next; g.phase = 'roll'; g.dice = null; g.legal = []; g.sixes = 0;

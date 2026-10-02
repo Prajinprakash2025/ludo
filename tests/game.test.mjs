@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame,roll,move,finishNoMove,square,SAFE,FINISH,advance,forfeit,TRACK,LANES,chooseBotMove } from '../game.mjs';
+import { createGame,roll,move,finishNoMove,finishCelebration,skip,square,SAFE,FINISH,advance,forfeit,TRACK,LANES,chooseBotMove } from '../game.mjs';
 const names=['A','B','C','D'];
 const game=()=>createGame(names.map(name=>({name})));
 test('board has 52 distinct track squares, four rotations and separate home lanes',()=>{
@@ -37,9 +37,31 @@ test('invalid token move leaves state unchanged; invalid dice are refused',()=>{
   assert.throws(()=>move(g,9,names)); assert.equal(JSON.stringify(g),before);
   const g2=game(); assert.throws(()=>roll(g2,7,names)); assert.throws(()=>roll(g2,1.5,names));
 });
-test('four finished tokens win immediately and further turns do not advance',()=>{
-  const g=game(); g.tokens[0]=[FINISH,FINISH,FINISH,55]; roll(g,1,names); move(g,3,names);
-  assert.equal(g.winner,0); assert.equal(g.phase,'done'); advance(g); assert.equal(g.turn,0);
+test('first wins dance alone for exactly 15 seconds, then second place ends the race with a 20-second party',()=>{
+  const g=game();g.tokens[0]=[56,56,56,55];roll(g,1,names);move(g,3,names,1000);
+  assert.equal(g.winner,0);assert.equal(g.phase,'celebration');assert.equal(g.turn,1);
+  assert.deepEqual(g.active,[1,2,3]);assert.deepEqual(g.celebration.seats,[0]);
+  assert.equal(g.celebration.endsAt,16000);
+  const frozen=JSON.stringify(g);advance(g);skip(g,'B');assert.throws(()=>roll(g,6,names));assert.throws(()=>move(g,0,names));
+  assert.equal(JSON.stringify(g),frozen);assert.equal(finishCelebration(g,15999),false);
+  assert.equal(finishCelebration(g,16000),true);assert.equal(g.phase,'roll');assert.equal(g.turn,1);
+  g.tokens[1]=[56,56,56,55];roll(g,1,names);move(g,3,names,17000);
+  assert.equal(g.winner,0);assert.equal(g.placements.length,2);assert.deepEqual(g.celebration.seats,[0,1]);
+  assert.equal(g.celebration.endsAt,37000);assert.equal(g.celebration.final,true);
+  assert.equal(finishCelebration(g,36999),false);finishCelebration(g,37000);
+  assert.equal(g.phase,'done');const end=JSON.stringify(g);advance(g);assert.throws(()=>roll(g,1,names));assert.equal(JSON.stringify(g),end);
+});
+test('second place in a two-player race must finish all four tokens; leaving never takes a recorded place away',()=>{
+  const g=createGame([{name:'A'},{name:'B'},null,null]);g.tokens[0]=[56,56,56,55];roll(g,1,names);move(g,3,names,1000);
+  forfeit(g,0,names);assert.equal(g.placements[0].name,'A');assert.deepEqual(g.tokens[0],[56,56,56,56]);
+  finishCelebration(g,16000);assert.equal(g.phase,'roll');assert.equal(g.turn,1);
+  roll(g,2,names);finishNoMove(g);assert.equal(g.turn,1);assert.equal(g.placements.length,1);
+  forfeit(g,1,names);assert.equal(g.phase,'done');assert.equal(g.winner,0);assert.equal(g.placements.length,1);
+});
+test('leaving during a celebration keeps its deadline and skips that seat after the dance',()=>{
+  const g=game();g.tokens[0]=[56,56,56,55];roll(g,1,names);move(g,3,names,1000);
+  forfeit(g,1,names);assert.equal(g.phase,'celebration');assert.equal(g.turn,2);assert.equal(g.celebration.endsAt,16000);
+  finishCelebration(g,16000);assert.equal(g.turn,2);assert.equal(g.sixes,0);
 });
 test('inactive seats are skipped and leaving the last opponent awards a win',()=>{
   const g=createGame([{name:'A'},null,{name:'C'},null]); advance(g); assert.equal(g.turn,2);
@@ -57,9 +79,13 @@ test('20 complete simulated games preserve token bounds and reach a valid winner
       if(g.phase==='roll') {random=(Math.imul(random,1664525)+1013904223)>>>0;roll(g,1+Math.floor(random/4294967296*6),names);}
       else if(g.phase==='move') move(g,chooseBotMove(g),names);
       else if(g.phase==='waiting') finishNoMove(g);
+      else if(g.phase==='celebration') finishCelebration(g,g.celebration.endsAt);
       g.tokens.flat().forEach(p=>assert.ok(Number.isInteger(p)&&p>=-1&&p<=56));
     }
     assert.ok(actions<10000,'Game must make progress');
     assert.ok(g.tokens[g.winner].every(p=>p===56));
+    assert.equal(g.placements.length,2);assert.equal(g.placements[0].seat,g.winner);
+    assert.notEqual(g.placements[0].seat,g.placements[1].seat);
+    assert.ok(g.tokens[g.placements[1].seat].every(p=>p===56));
   }
 });

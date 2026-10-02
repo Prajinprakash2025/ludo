@@ -53,7 +53,8 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     r.touched = Date.now();
   }
   function deadline(r) {
-    if (r.game && r.game.phase !== 'done') r.game.deadline = Date.now()+turnMs;
+    if (r.game?.phase === 'celebration') r.game.deadline = r.game.celebration.endsAt;
+    else if (r.game && r.game.phase !== 'done') r.game.deadline = Date.now()+turnMs;
     r.botAt = Date.now()+botDelay;
   }
   function attach(ws,r,seat) {
@@ -143,6 +144,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     }
     if (!r.game || r.game.phase === 'done') throw new Error('The race is not running.');
     const g = r.game;
+    if (g.phase === 'celebration') throw new Error('Enjoy the victory dance. The dice will return after it.');
     // Stale requests resync instead of punishing double clicks or a slow connection.
     if (m.revision !== g.revision) { send(ws,{type:'state',room:publicRoom(r)}); return; }
     if (g.turn !== ws.seat) throw new Error('Wait for your turn.');
@@ -220,7 +222,9 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
       }
       if (!g || g.phase === 'done') continue;
       try {
-        if (g.phase === 'waiting') {
+        if (g.phase === 'celebration') {
+          if (rules.finishCelebration(g)) { deadline(r); broadcast(r); }
+        } else if (g.phase === 'waiting') {
           if (Date.now() >= (r.waitAt || 0)) { rules.finishNoMove(g); deadline(r); broadcast(r); }
         } else if (r.seats[g.turn]?.bot && Date.now() >= r.botAt) {
           if (g.phase === 'roll') rules.roll(g,die(),names(r));
