@@ -48,3 +48,14 @@ The fixture is test-only. The normal game server continues on port 4173.
 - Four real WebSocket clients with Origin `https://ludoloop.netlify.app` created/joined a room, started the game and received the same server-generated dice result.
 - Two real browsers on the Netlify deployment connected directly to the PythonAnywhere WSS backend: room join, shared dice, sender-only Dance, a Netlify invite link, same-seat mobile reconnect and zero page errors passed. Desktop/mobile screenshots are in the local ignored output/playwright directory.
 - Public WebSocket smoke now accepts an optional frontend origin for split deployments.
+
+### Mobile rendering and scrolling — 2 October 2026
+
+- Phone layouts use a 1x pixel ratio, lower sphere/leaf geometry detail, fewer bank decorations, and no shadow-map or eight-point-light pass. The board, all 16 characters, two waterfalls, eight flames and three character emotes remain animated. Desktop keeps full geometry detail and shadows.
+- Static scenery matrices and instance buffers are built once. Shared pad/ring/scarf/smile/waterfall geometry reduces draw calls. CSS transform reads are grouped before hit-target writes, and hidden SVG artwork no longer runs duplicate animations.
+- Mobile canvas height uses the stable viewport to avoid reallocating it as browser controls move while scrolling. Passive scroll handling yields graphics work for 120ms after a scroll event; offscreen previews stop rendering and resume on return.
+- In a 390x844, 3x-DPI browser simulation, recorded draw calls fell from 512 to 242 and the canvas from 538x1101 to 384x787. Under 4x CPU throttling, style work over the sampling window fell from 1166ms to 248ms. These are browser simulations, not measured FPS or a smoothness guarantee on the user's physical phone.
+- All 16 engine/network/hosting tests and syntax checks pass. Existing browser checks passed stacked clicks during Jump, mobile head taps, keyboard entry, remote move sync, sender-only/concurrent Jump/Dance/Wave, reduced motion, animated water/fire and correct mobile aspect ratio.
+- `tests/mobile-render-smoke.js` additionally verified a 3x-DPI touch viewport: 1x canvas resolution, offscreen preview suspension, resumption on return, animated water/fire and Wave, with zero page errors.
+- Three live backend WebSocket ping round trips from this laptop measured 233ms, 231ms and 236ms. This does not measure the phone's network and does not establish the cause of its dice delay.
+- `game.mjs`, server behavior, dice timing and legal moves are unchanged. This is a frontend update; the PythonAnywhere server does not need reloading for it.

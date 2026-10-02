@@ -3,14 +3,15 @@ import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js'
 
 // A visual scene only: token routes and legal moves remain in the existing client.
 export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track,lanes,yards,safe}) {
-  const mobile=innerWidth<650, reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  const phoneLayout=()=>innerWidth<650 || matchMedia('(pointer: coarse)').matches;
+  const mobile=phoneLayout(), reduced=matchMedia('(prefers-reduced-motion: reduce)');
   let renderer;
-  try {renderer=new T.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});}
+  try {renderer=new T.WebGLRenderer({antialias:!mobile,alpha:false,powerPreference:'high-performance'});}
   catch {document.body.classList.add('webgl-fallback');return null;}
-  renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.4:1.65));
+  renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1:1.65));
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.02;
-  renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;
+  renderer.shadowMap.enabled=!mobile;renderer.shadowMap.type=T.PCFShadowMap;
   renderer.domElement.className='jungle-canvas';renderer.domElement.setAttribute('aria-hidden','true');
   board.prepend(renderer.domElement);document.body.classList.add('scene-3d');
   const scene=new T.Scene();scene.background=new T.Color('#0f4539');scene.fog=new T.Fog('#0c4835',36,70);
@@ -28,9 +29,16 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     if(!materials.has(key))materials.set(key,new T.MeshStandardMaterial({color,roughness:.72,...extra}));
     return materials.get(key);
   }
-  const sphere=new T.SphereGeometry(1,20,14), rockGeo=new T.IcosahedronGeometry(1,1);
+  const sphere=new T.SphereGeometry(1,mobile?12:20,mobile?8:14), rockGeo=new T.IcosahedronGeometry(1,1);
   const stemGeo=new T.CylinderGeometry(1,1,1,8);
-  const leafGeo=new T.SphereGeometry(1,12,8);
+  const leafGeo=new T.SphereGeometry(1,mobile?8:12,mobile?5:8);
+  const explorerRingGeo=new T.TorusGeometry(.39,.025,8,32);
+  const scarfGeo=new T.ConeGeometry(.14,.18,3);
+  const smileCurve=new T.QuadraticBezierCurve3(new T.Vector3(-.08,-.185,.351),new T.Vector3(0,-.24,.38),new T.Vector3(.08,-.185,.351));
+  const smileGeo=new T.TubeGeometry(smileCurve,10,.008,5,false);
+  const campPadGeo=new T.CylinderGeometry(.56,.6,.08,28),campInsetGeo=new T.CylinderGeometry(.51,.51,.085,28);
+  const waterfallStrandGeo=new T.CylinderGeometry(.015,.018,1,5);
+  const burstGeo=new T.OctahedronGeometry(.035);
   function mesh(parent,geometry,material,x=0,y=0,z=0,sx=1,sy=sx,sz=sx,shadow=true) {
     const m=new T.Mesh(geometry,material);m.position.set(x,y,z);m.scale.set(sx,sy,sz);
     m.castShadow=shadow;m.receiveShadow=true;parent.add(m);return m;
@@ -146,7 +154,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     const core=ball(g,'#fff38b',0,1.14,.02,.08,.23,.08,{emissive:'#ffce32',emissiveIntensity:3});
     const flameSheet=mesh(g,new T.PlaneGeometry(.52,.78,5,12),fireMaterial,0,1.28,.08,1,1,1,false);
     flameSheet.rotation.x=-.16;
-    const light=new T.PointLight('#ffb531',2,3,2);light.position.set(0,1.3,0);g.add(light);
+    const light=new T.PointLight('#ffb531',2,3,2);light.position.set(0,1.3,0);light.visible=!mobile;g.add(light);
     torches.push({flame,core,light,phase:random()*6});
     for(let i=0;i<3;i++)particles.push({m:ball(g,'#ffe999',0,1.6+i*.2,0,.02,.02,.02,{emissive:'#ffb800',emissiveIntensity:2}),base:1.3,phase:random()*6,fire:true});
   }
@@ -198,8 +206,8 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     mushroom(x+2.1,z+2.23);plant(x-2.05,z+2.15,.42);
     for(let t=0;t<4;t++) {
       const [r,c]=yards[s][t];
-      const pad=mesh(scene,new T.CylinderGeometry(.56,.6,.08,28),mat('#e4bf77'),c-7.5,.39,r-7.5);
-      mesh(scene,new T.CylinderGeometry(.51,.51,.085,28),mat(campColors[s]),c-7.5,.41,r-7.5);
+      const pad=mesh(scene,campPadGeo,mat('#e4bf77'),c-7.5,.39,r-7.5);
+      mesh(scene,campInsetGeo,mat(campColors[s]),c-7.5,.41,r-7.5);
     }
   });
   // All 72 visible cross cells retain the original coordinates.
@@ -255,7 +263,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     if(k%4===0)palm(x,z,1.1);
   }
   // Fern beds and flowers fill the banks, leaving the streams and tiles clear.
-  for(let side=0;side<2;side++)for(let k=0;k<65;k++){
+  for(let side=0;side<2;side++)for(let k=0;k<(mobile?32:65);k++){
     const x=(side?1:-1)*(8.75+random()*3.7),z=-9.4+random()*18.8;
     if(Math.abs(x)<9.6&&z>-4.9&&z<-2.2)continue;
     plant(x,z,.27+random()*.36,k%3===0?1:0);
@@ -263,7 +271,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     if(k%3===0)flower(x-.12,z+.1,.12+random()*.08);
   }
   // Layered banks continue beyond the board when a phone shows a taller view.
-  for(let side=0;side<2;side++)for(let k=0;k<85;k++){
+  for(let side=0;side<2;side++)for(let k=0;k<(mobile?36:85);k++){
     const x=(side?1:-1)*(8.65+random()*4.5),z=-19+random()*38;
     if(Math.abs(z)<8.5)continue;
     rock(x,.05,z,.35+random()*.6);
@@ -304,7 +312,8 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     const material=new T.MeshBasicMaterial({color:'#6bdef5',transparent:true,opacity:.75,side:T.DoubleSide,depthWrite:false});
     const sheet=mesh(g,new T.PlaneGeometry(1.5,2),material,0,.28,0,1,1,1,false);
     for(let i=0;i<22;i++){
-      const line=mesh(g,new T.CylinderGeometry(.015,.018,.33+random()*.4,5),mat('#bdfdff',{emissive:'#66d7ef',emissiveIntensity:.65,transparent:true,opacity:.65}),-.68+random()*1.36,random()*2-.65,.025+random()*.03,1,1,1,false);
+      const length=.33+random()*.4;
+      const line=mesh(g,waterfallStrandGeo,mat('#bdfdff',{emissive:'#66d7ef',emissiveIntensity:.65,transparent:true,opacity:.65}),-.68+random()*1.36,random()*2-.65,.025+random()*.03,1,length,1,false);
       fallLines.push({m:line,phase:random()*2,base:.99});
     }
     for(let i=0;i<28;i++){
@@ -344,7 +353,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     cylinder(body,'#bba566',[-.21,.82,-.24],[.21,.82,-.24],.065);
     for(const dx of [-.14,.14])box(body,'#d2af58',dx,.63,.2,.036,.39,.035,.009);
     ball(body,'#eece68',.15,.54,.225,.045,.055,.021);
-    const scarf=mesh(body,new T.ConeGeometry(.14,.18,3),mat(colors[seat]),0,.83,.19);scarf.rotation.z=Math.PI;
+    const scarf=mesh(body,scarfGeo,mat(colors[seat]),0,.83,.19);scarf.rotation.z=Math.PI;
     ball(head,fur,0,0,0,.36,.33,.3);
     if(fox){
       for(const dx of [-.26,.26]){
@@ -368,8 +377,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       cylinder(head,deer?'#7e552f':'#6c492a',[dx-.035,.122,.28],[dx+.03,.134,.282],.012);
     }
     ball(head,'#27251e',0,-.12,.365,.065,.045,.035,{roughness:.3});
-    const smile=new T.QuadraticBezierCurve3(new T.Vector3(-.08,-.185,.351),new T.Vector3(0,-.24,.38),new T.Vector3(.08,-.185,.351));
-    mesh(head,new T.TubeGeometry(smile,10,.008,5,false),mat('#66412d'));
+    mesh(head,smileGeo,mat('#66412d'));
     for(const dx of [-.25,.25])ball(head,'#e9a380',dx,-.09,.248,.036,.022,.008);
     if(deer){
       for(const sign of [-1,1]){
@@ -379,7 +387,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       }
       for(const dx of [-.2,.2])ball(head,'#fae4b1',dx,.14,.227,.025,.029,.008);
     }
-    const ring=mesh(g,new T.TorusGeometry(.39,.025,8,32),mat(colors[seat],{emissive:colors[seat],emissiveIntensity:.8}),0,.03,0);
+    const ring=mesh(g,explorerRingGeo,mat(colors[seat],{emissive:colors[seat],emissiveIntensity:.8}),0,.03,0);
     ring.rotation.x=Math.PI/2;
     // A physical numbered badge makes otherwise identical explorers selectable.
     const numberCanvas=document.createElement('canvas');numberCanvas.width=64;numberCanvas.height=64;
@@ -389,11 +397,29 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     scene.add(g);return {g,body,head,eyes,feet,arms,ring,seat,token,phase:seat*.9+token*1.6};
   }
   for(let s=0;s<4;s++)for(let t=0;t<4;t++)animals.push(animal(s,t));
+  // Keep scenery in static GPU buffers. Only articulated/animated parts need
+  // fresh transforms; a rock or bridge never needs uploading every frame.
+  const movingNodes=new Set(),movingMeshes=new Set();
+  function moving(node){
+    movingNodes.add(node);
+    node.traverse(child=>{if(child.isMesh)movingMeshes.add(child);});
+  }
+  const animatedBreeze=mobile?breeze.filter((_,i)=>i%4===0):breeze;
+  const animatedFlowers=mobile?flowers.filter((_,i)=>i%3===0):flowers;
+  animatedBreeze.forEach(b=>moving(b.g));animatedFlowers.forEach(f=>moving(f.g));
+  torches.forEach(t=>{moving(t.flame);moving(t.core);});
+  fallLines.forEach(line=>moving(line.m));ripples.forEach(r=>moving(r.m));
+  particles.forEach(p=>moving(p.m));
+  animals.forEach(a=>[a.g,a.body,a.head,a.eyes,a.ring,...a.arms,...a.feet].forEach(moving));
+  scene.updateMatrixWorld(true);
+  scene.traverse(node=>{if(!movingNodes.has(node)){node.updateMatrix();node.matrixAutoUpdate=false;}});
+  // tick owns the single matrix update; renderer must not traverse it again.
+  scene.matrixWorldAutoUpdate=false;
   // Share geometry/material draw calls while keeping every articulated part animated.
   const batchGroups=new Map();
   scene.traverse(object=>{
     if(!object.isMesh||!object.geometry||Array.isArray(object.material))return;
-    const key=object.geometry.uuid+'|'+object.material.uuid;
+    const key=object.geometry.uuid+'|'+object.material.uuid+'|'+movingMeshes.has(object);
     if(!batchGroups.has(key))batchGroups.set(key,[]);
     batchGroups.get(key).push(object);
   });
@@ -402,15 +428,19 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     if(sources.length<2)continue;
     const batch=new T.InstancedMesh(sources[0].geometry,sources[0].material,sources.length);
     batch.castShadow=sources.some(m=>m.castShadow);batch.receiveShadow=true;batch.frustumCulled=false;
-    batch.instanceMatrix.setUsage(T.DynamicDrawUsage);
-    sources.forEach(m=>m.layers.set(31));scene.add(batch);batches.push({batch,sources});
+    const dynamic=movingMeshes.has(sources[0]);
+    batch.instanceMatrix.setUsage(dynamic?T.DynamicDrawUsage:T.StaticDrawUsage);
+    sources.forEach((m,i)=>{m.layers.set(31);batch.setMatrixAt(i,m.matrixWorld);});
+    batch.instanceMatrix.needsUpdate=true;
+    batch.matrixAutoUpdate=false;scene.add(batch);
+    if(dynamic)batches.push({batch,sources});
   }
   const svg=board.querySelector('svg'),point=svg.createSVGPoint(),projection=new T.Vector3();
   const preview=document.getElementById('preview-board');
   preview.innerHTML='';
   let renderHost=preview;preview.append(renderer.domElement);
   let width=0,height=0,lastFrame=0,frames=0,frameMs=0,stopped=false;
-  const diagnostics={renderer:'WebGL 3D',frames:0,tiles:tileMeshes.length,animals:16,waterfalls:2,torchCount:torches.length,drawCalls:0,fps:0};
+  const diagnostics={renderer:'WebGL 3D',frames:0,tiles:tileMeshes.length,animals:16,waterfalls:2,torchCount:torches.length,drawCalls:0,fps:0,performanceVersion:1};
   const characterEmotes=new Map();
   function celebrate(seat,kind='jump'){
     const room=getRoom();
@@ -422,6 +452,11 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
   function resize() {
     const rect=renderHost.getBoundingClientRect();
     if(!rect.width||!rect.height)return;
+    const smooth=phoneLayout();
+    renderer.setPixelRatio(Math.min(devicePixelRatio,smooth?1:1.65));
+    renderer.shadowMap.enabled=!smooth;
+    torches.forEach(t=>t.light.visible=!smooth);
+    diagnostics.quality=smooth?'mobile-smooth':'full';
     width=rect.width;height=rect.height;renderer.setSize(width,height,false);
     const aspect=width/height;
     const viewHeight=innerWidth<650?18.2/aspect:Math.max(16.85,13.6*height/Math.max(300,height-180));
@@ -432,6 +467,14 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     diagnostics.viewportAspect=aspect;
   }
   const observer=new ResizeObserver(resize);observer.observe(board);observer.observe(preview);
+  const visibleHosts=new Map([[board,true],[preview,true]]);
+  const visibilityObserver=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>visibleHosts.set(entry.target,entry.isIntersecting));
+  });
+  visibilityObserver.observe(board);visibilityObserver.observe(preview);
+  let lastScrollAt=-Infinity;
+  const onScroll=()=>{if(phoneLayout())lastScrollAt=performance.now();};
+  window.addEventListener('scroll',onScroll,{passive:true});
   // Existing DOM token controls provide keyboard access and the same move action.
   function projectedHit(a,el,matrix,rect,inverse) {
     projection.set(0,.55,0).applyMatrix4(a.body.matrixWorld).project(camera);
@@ -471,7 +514,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       if(!m)continue;
       for(let i=0;i<12;i++){
         const material=mat('#ffe266',{emissive:'#e8a923',emissiveIntensity:1,transparent:true,opacity:1}).clone();
-        const p=mesh(scene,new T.OctahedronGeometry(.035),material,Number(m[1])-7.5,.65,Number(m[2])-7.5,1,1,1,false);
+        const p=mesh(scene,burstGeo,material,Number(m[1])-7.5,.65,Number(m[2])-7.5,1,1,1,false);
         particles.push({m:p,burst:true,born:performance.now()/1000,angle:i*6.283/12,x:p.position.x,z:p.position.z});
       }
     }
@@ -482,7 +525,9 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     requestAnimationFrame(tick);
     const nextHost=getRoom()?board:preview;
     if(nextHost!==renderHost){renderHost=nextHost;renderHost.prepend(renderer.domElement);resize();}
-    if(document.hidden || !width || !height)return;
+    // Let phone scrolling use the frame budget; resume immediately on settling.
+    // Offscreen previews should not keep consuming GPU time either.
+    if(document.hidden || !visibleHosts.get(renderHost) || now-lastScrollAt<120 || !width || !height){lastFrame=now;return;}
     // Cap visual rendering, leaving multiplayer timers and input untouched.
     if(now-lastFrame<(innerWidth<650?32:21))return;
     const dt=now-lastFrame;lastFrame=now;frameMs+=dt;frames++;
@@ -490,8 +535,8 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     waterMaterial.uniforms.time.value=time;
     fireMaterial.uniforms.time.value=time;
     diagnostics.waterTime=time;diagnostics.fireTime=time;
-    for(const b of breeze){b.g.rotation.z=Math.sin(time*1.05+b.phase)*.025;b.g.rotation.x=Math.sin(time*.8+b.phase)*.018;}
-    for(const f of flowers)f.g.rotation.y=Math.sin(time*1.3+f.phase)*.1;
+    for(const b of animatedBreeze){b.g.rotation.z=Math.sin(time*1.05+b.phase)*.025;b.g.rotation.x=Math.sin(time*.8+b.phase)*.018;}
+    for(const f of animatedFlowers)f.g.rotation.y=Math.sin(time*1.3+f.phase)*.1;
     for(const t of torches){
       const n=Math.sin(time*12+t.phase)*.1+Math.sin(time*19+t.phase)*.05;
       t.flame.scale.y=.35*(1+n);t.flame.rotation.z=n*.7;t.core.scale.y=.23*(1-n*.6);t.light.intensity=1.9+n*3;
@@ -510,6 +555,9 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     stars.forEach((s,i)=>s.material.emissiveIntensity=.12+(Math.sin(time*2+i)+1)*.1);
     const rect=svg.getBoundingClientRect(),ctm=svg.getScreenCTM();
     const inverse=ctm?.inverse(),room=getRoom(),game=room?.game;
+    // Read all CSS transforms before writing projected hit targets. Interleaving
+    // these reads/writes previously forced a style recalculation per explorer.
+    const transforms=animals.map(a=>getComputedStyle(tokenNodes.get(a.seat+'-'+a.token)).transform);
     const activeEmotes=new Map();
     for(const [seat,emote] of characterEmotes){
       const age=(now-emote.started)/1000,duration=emote.kind==='dance'?2.8:emote.kind==='wave'?2.4:2.2;
@@ -518,14 +566,15 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
       const hop=emote.kind==='jump'&&!reduced.matches&&age>.16&&age<1.9?Math.sin(Math.PI*((age-.16)%.58/.58)):0;
       activeEmotes.set(seat,{seat,kind:emote.kind,age,strength,hop,jumpHeight:hop*.7,participants:0});
     }
-    for(const a of animals){
-      const el=tokenNodes.get(a.seat+'-'+a.token),transform=getComputedStyle(el).transform;
+    for(const [index,a] of animals.entries()){
+      const el=tokenNodes.get(a.seat+'-'+a.token),transform=transforms[index];
       const matrix=transform==='none'?new DOMMatrix():new DOMMatrix(transform);
       const walking=el.classList.contains('walking'),finished=el.classList.contains('finished');
       a.g.visible=!room||(!finished && !!room?.seats[a.seat]&&(!game||game.active.includes(a.seat)));
       if(!a.g.visible)continue;
       const p=Number(el.dataset.visualStep),scale=p<0?1.25:.88;
-      if(reduced.matches)a.g.scale.setScalar(scale);else a.g.scale.lerp(new T.Vector3(scale,scale,scale),.2);
+      if(reduced.matches)a.g.scale.setScalar(scale);
+      else a.g.scale.setScalar(T.MathUtils.lerp(a.g.scale.x,scale,.2));
       a.g.position.set(matrix.e-7.5,.5,matrix.f-7.5);
       const phase=time*(walking?[14,12,15,18][a.seat]:2)+a.phase;
       a.body.position.y=walking?Math.abs(Math.sin(phase))*(a.seat===2?.16:.095):Math.sin(phase)*.017;
@@ -573,11 +622,11 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
         }
       }
       if(el.classList.contains('returning'))a.g.scale.multiplyScalar(.6);
-      a.g.updateMatrixWorld(true);
-      if(inverse&&room)projectedHit(a,el,matrix,rect,inverse);
+      a.g.updateMatrixWorld();
+      if(inverse&&room&&legal)projectedHit(a,el,matrix,rect,inverse);
     }
     diagnostics.emotes=Array.from(activeEmotes.values()).map(({seat,kind,participants,jumpHeight,strength})=>({seat,kind,participants,jumpHeight,strength}));
-    scene.updateMatrixWorld(true);
+    scene.updateMatrixWorld();
     for(const {batch,sources} of batches){
       sources.forEach((source,i)=>{
         let visible=source.visible,node=source.parent;
@@ -588,9 +637,10 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,colors,track
     }
     renderer.render(scene,camera);diagnostics.frames++;
     diagnostics.time=time;diagnostics.drawCalls=renderer.info.render.calls;
+    diagnostics.triangles=renderer.info.render.triangles;
     if(frames>=30){diagnostics.fps=Math.round(1000*frames/frameMs);frames=0;frameMs=0;}
   }
   resize();requestAnimationFrame(tick);
   renderer.domElement.addEventListener('webglcontextlost',()=>{board.dataset.renderer='lost';},{passive:true});
-  return {resize,pickToken,celebrate,renderer,scene,camera,diagnostics,dispose(){stopped=true;observer.disconnect();effectObserver.disconnect();renderer.dispose();}};
+  return {resize,pickToken,celebrate,renderer,scene,camera,diagnostics,dispose(){stopped=true;observer.disconnect();visibilityObserver.disconnect();effectObserver.disconnect();window.removeEventListener('scroll',onScroll);renderer.dispose();}};
 }

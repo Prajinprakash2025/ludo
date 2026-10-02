@@ -98,6 +98,7 @@ body.scene-3d{background:#123d2e}
 .scene-3d .emotes .emote-action:focus-visible{outline:2px solid #fff3a4;outline-offset:3px}
 .scene-3d .emotes .emote-action:disabled{opacity:.55;cursor:wait}
 .scene-3d #board .animal-idle,.scene-3d #board .scenery-motion{animation:none}
+.scene-3d #board>svg *{animation:none!important}
 .scene-3d .world-stage{display:none}
 .scene-3d #room-screen{position:relative;min-height:calc(100dvh - 65px)}
 .scene-3d .game-layout{position:relative;width:100%;max-width:none;height:calc(100dvh - 70px);min-height:600px;padding:0;overflow:hidden;display:block;background:#123e2f;border-radius:20px}
@@ -166,3 +167,13 @@ body.scene-3d{background:#123d2e}
 .scene-3d .play-panel{padding:9px 15px 7px}.scene-3d .play-panel #turn-help{display:none}.scene-3d .play-panel .activity{position:absolute;right:-126px;bottom:0;width:112px;background:#493421d9;border:1px solid #a18245;border-radius:8px;padding:7px}.scene-3d .play-panel .emotes{position:absolute;left:-139px;bottom:7px}.scene-3d .play-panel .activity[open]{width:230px;right:0;bottom:100%;order:0}.scene-3d .play-panel .timer-track{bottom:-3px}@media(max-width:650px){.scene-3d .play-panel .emotes{left:auto;right:2px;bottom:100%;padding:4px;background:#18382ade;border-radius:8px}.scene-3d .play-panel .activity{right:auto;left:2px;bottom:100%;width:95px;padding:4px;font-size:6px}.scene-3d .play-panel .activity[open]{left:0;right:0;width:100%}}
 @media(min-width:651px) and (max-width:1050px){.scene-3d .play-panel .emotes{left:0;bottom:calc(100% + 8px)}}
 @media(max-width:650px){.scene-3d .play-panel .emotes{width:195px}.scene-3d .emotes button.emote-action{height:38px;flex-direction:row;gap:5px;font-size:11px}.scene-3d .emotes .emote-action>span:first-child{font-size:16px}}
+/* Stable canvas size while mobile browser chrome moves during scrolling.
+   Blurring a continuously animated canvas under cards is also expensive. */
+@media(max-width:650px),(pointer:coarse){
+ .scene-3d .player-card,.scene-3d .setup-card,.scene-3d .winner-layer{backdrop-filter:none}
+ .scene-3d #board{contain:layout paint}
+}
+@media(max-width:650px){
+ .scene-3d #room-screen{min-height:calc(100svh - 52px)}
+ .scene-3d .game-layout{height:calc(100svh - 57px)}
+}
