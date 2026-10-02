@@ -59,3 +59,4 @@ The fixture is test-only. The normal game server continues on port 4173.
 - `tests/mobile-render-smoke.js` additionally verified a 3x-DPI touch viewport: 1x canvas resolution, offscreen preview suspension, resumption on return, animated water/fire and Wave, with zero page errors.
 - Three live backend WebSocket ping round trips from this laptop measured 233ms, 231ms and 236ms. This does not measure the phone's network and does not establish the cause of its dice delay.
 - `game.mjs`, server behavior, dice timing and legal moves are unchanged. This is a frontend update; the PythonAnywhere server does not need reloading for it.
+- GitHub commit `ddea111` was pushed to main. The live Netlify bundle contains the mobile performance update, and the high-DPI mobile rendering smoke passed on the public deployment with zero page errors. Physical-phone scroll smoothness still requires the user's reload and retest.
