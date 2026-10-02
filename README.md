@@ -58,6 +58,8 @@ This project is not automatically published by running it locally. Local rooms a
 
 The browser smoke scenario in tests/ui-smoke.js is run through Playwright CLI. The public WebSocket smoke scenario takes a temporary HTTPS URL as an argument.
 
+For the deployed split setup, use `node tests/public-smoke.mjs https://ludoloop.pythonanywhere.com https://ludoloop.netlify.app`. It verifies backend health and four-player shared dice with the frontend's approved Origin header.
+
 For deterministic animation checks, start tests/visual-fixture-server.mjs, then run tests/jungle-visual-smoke.js through Playwright CLI. This isolated fixture uses localhost ports 4174 and 4175 and sets known test positions; it is never started by the normal launcher. It verifies two-player entry, five separate steps on both clients, captures, safe squares, home lanes, remote moves, wins, rematches, reconnects, leaving and reduced motion. Layout checks cover widths 320, 390 and 768. The normal four-player browser scenario verifies real random dice and multiplayer controls.
 
 Rule tests cover entry, exact finish, captures, safe squares, triple sixes, invalid moves, player rotation and wins. Network tests use real WebSocket clients to cover four-player rooms, host actions, forged dice, stale moves, reconnects and bot advancement.

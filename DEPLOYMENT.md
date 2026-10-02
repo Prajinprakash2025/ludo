@@ -4,7 +4,7 @@ Prepared for GitHub repository https://github.com/Prajinprakash2025/ludo and Pyt
 
 The frontend renders the jungle and connects directly to the backend over secure WebSockets. The backend owns rooms, dice and legal moves. You do not need this laptop running after both services are deployed.
 
-**Status:** separate hosting code is prepared and locally verified. These instructions do not mean a PythonAnywhere or Netlify deployment has already been completed.
+**Status, 2 October 2026:** the user deployed the frontend at https://ludoloop.netlify.app and the backend at https://ludoloop.pythonanywhere.com. Live HTTPS health and four-player WebSocket/dice synchronization checks passed. These instructions describe the setup used for that deployment.
 
 ## 1. Deploy the frontend on Netlify
 
@@ -161,6 +161,21 @@ fi
 ```
 
 Then check `/health` and a two-device game as described above. If startup still fails, inspect new log messages; old `env` errors remain in the log history.
+
+If deletion returns an HTTP 504 timeout, check the state with `pa website get --domain ludoloop.pythonanywhere.com` before trying another mutation. The timeout does not prove the website was deleted. If the old configuration is still present, disable it first using the provider's supported API:
+
+```bash
+python3 - <<'PY'
+from pythonanywhere_core.base import call_api
+url = "https://www.pythonanywhere.com/api/v1/user/ludoloop/websites/ludoloop.pythonanywhere.com/"
+r = call_api(url, "patch", json={"enabled": False}, timeout=30)
+print("HTTP:", r.status_code)
+r.raise_for_status()
+print("Enabled:", r.json().get("enabled"))
+PY
+```
+
+After HTTP 200 and `Enabled: False`, run the repair block above once. This sequence succeeded for the user's deployment after the initial delete timeout. The PythonAnywhere package reads the account token from the console environment; the token is never printed or stored in this repository. If disabling also fails, resolve the provider/API error before continuing.
 
 ## Free account limits
 

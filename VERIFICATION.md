@@ -39,3 +39,12 @@ The fixture is test-only. The normal game server continues on port 4173.
 - The user supplied startup logs containing repeated `[Errno 2] No such file or directory: env`. The deployment guide now resolves the absolute env executable, verifies both executables exist and documents replacement of that broken website configuration.
 - Provider documentation states the async API cannot patch the serving command; it requires deleting/recreating the website configuration. The user's project directory remains the source for the corrected command.
 - This is a deployment guide correction; no game logic or application code was changed. PythonAnywhere health and multiplayer still need verification after the user applies the corrected command.
+
+### Successful public deployment — 2 October 2026
+
+- The initial delete API request returned 504, and a subsequent website GET showed the original bare-env command still present.
+- The user disabled the website through the documented PATCH API (HTTP 200, enabled false), then successfully deleted/recreated it with absolute env and Node executable paths.
+- Live `https://ludoloop.pythonanywhere.com/health` returned HTTP 200 and `{"ok":true}`.
+- Four real WebSocket clients with Origin `https://ludoloop.netlify.app` created/joined a room, started the game and received the same server-generated dice result.
+- Two real browsers on the Netlify deployment connected directly to the PythonAnywhere WSS backend: room join, shared dice, sender-only Dance, a Netlify invite link, same-seat mobile reconnect and zero page errors passed. Desktop/mobile screenshots are in the local ignored output/playwright directory.
+- Public WebSocket smoke now accepts an optional frontend origin for split deployments.

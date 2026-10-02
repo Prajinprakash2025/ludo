@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import { WebSocket } from 'ws';
 const base=process.argv[2];
 if(!base?.startsWith('https://')) throw new Error('Provide the public HTTPS game URL.');
+const frontend=process.argv[3] || base;
+if(!frontend.startsWith('https://')) throw new Error('Provide the public HTTPS frontend origin.');
 const health=await fetch(base+'/health');
 assert.equal(health.status,200);
 assert.equal((await health.json()).ok,true);
 const peers=[];
 async function peer() {
-  const ws=new WebSocket(base.replace('https:','wss:'),{origin:base});
+  const ws=new WebSocket(base.replace('https:','wss:'),{origin:frontend});
   const messages=[];
   ws.on('message',data=>messages.push(JSON.parse(data.toString())));
   await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject);});
@@ -21,7 +23,7 @@ async function peer() {
 try {
   const host=await peer();host.send({type:'create',name:'Online check'});
   const joined=await host.wait(m=>m.type==='joined');
-  assert.equal(joined.shareBase,base);
+  assert.equal(joined.shareBase,frontend);
   for(const name of ['Guest 2','Guest 3','Guest 4']) {
     const p=await peer();p.send({type:'join',code:joined.code,name});await p.wait(m=>m.type==='joined');
   }
@@ -35,5 +37,5 @@ try {
     const synced=await p.wait(m=>m.type==='state'&&m.room.game?.lastRoll);
     assert.equal(synced.room.game.lastRoll.value,rolled.room.game.lastRoll.value);
   }
-  console.log(JSON.stringify({publicUrl:base,https:true,webSocket:true,players:4,syncedDice:true}));
+  console.log(JSON.stringify({publicUrl:base,frontendUrl:frontend,https:true,webSocket:true,players:4,syncedDice:true}));
 } finally {peers.forEach(p=>p.ws.terminate());}
