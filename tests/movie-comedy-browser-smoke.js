@@ -10,7 +10,6 @@ async (page) => {
     await phone.goto('http://127.0.0.1:4174');await phone.locator('#name').fill('Bear QA');await phone.locator('#begin').click();await phone.locator('#room-screen').waitFor({state:'visible'});
     const code=new URL(phone.url()).searchParams.get('room');
     await remote.goto('http://127.0.0.1:4174/?room='+code);await remote.locator('#name').fill('Panda QA');await remote.locator('#begin').click();await remote.locator('#room-screen').waitFor({state:'visible'});
-    for(const seat of [2,3])await phone.locator('[data-bot="'+seat+'"]').click();
     await phone.getByRole('button',{name:'Start the race'}).click();
     const seed=async(kind,step)=>{
       assert((await phone.request.get('http://127.0.0.1:4175/?code='+code+'&kind='+kind)).ok(),'Seed failed');
@@ -38,8 +37,21 @@ async (page) => {
     await remote.locator('#board').screenshot({path:'output/playwright/movie-boast-desktop.png'});
     stage='reconnect';await phone.reload();await phone.waitForFunction(()=>window.jungleScene?.frames>3);
     assert(await phone.evaluate(()=>!window.jungleScene.comedy&&document.querySelector('.movie-callout').hidden),'Reconnect replayed a quote');
-    stage='no move';await seed('no-move',-1);await roll();
+    stage='no move pacing';await seed('no-move',-1);
+    for(let i=0;i<4;i++){
+      const actor=pages[i%2],next=pages[(i+1)%2];
+      await actor.waitForFunction(()=>!document.querySelector('#roll').disabled);await actor.locator('#roll').click();
+      await next.waitForFunction(()=>!document.querySelector('#roll').disabled);
+      assert(await actor.locator('.movie-callout').isHidden(),'First/second failed roll repeated the dialogue');
+    }
+    await roll();
     await Promise.all(pages.map(p=>p.waitForFunction(()=>window.jungleScene.comedy?.kind==='noMove'&&window.jungleScene.comedy.pose?.rightArm>1)));
+    await Promise.all(pages.map(p=>p.locator('.movie-callout').waitFor({state:'hidden'})));
+    for(const [actor,next] of [[remote,phone],[phone,remote]]){
+      await actor.waitForFunction(()=>!document.querySelector('#roll').disabled);await actor.locator('#roll').click();
+      await next.waitForFunction(()=>!document.querySelector('#roll').disabled);
+      assert(await actor.locator('.movie-callout').isHidden(),'No-move quote repeated elsewhere at the table');
+    }
     stage='safe';await seed('safe-near',5);await play();
     await phone.waitForFunction(()=>document.querySelector('#board .token[data-seat="0"][data-token="0"]').dataset.visualStep==='7');
     assert(await phone.evaluate(()=>!window.jungleScene.comedy),'Safe-star false near miss');
@@ -47,17 +59,18 @@ async (page) => {
     await phone.waitForFunction(()=>window.jungleScene.comedy?.kind==='chase');
     const still=await phone.evaluate(()=>window.jungleScene.comedy);assert(still.reducedMotion&&Math.abs(still.pose.headYaw)<.1,'Reduced-motion pose still turns');
     stage='win';await seed('win',56);await play(3);
-    await phone.waitForFunction(()=>document.querySelector('#victory-quip')?.textContent.includes('ജങ്ക'));
+    await phone.waitForFunction(()=>!document.querySelector('#winner-layer').hidden&&document.querySelector('#victory-quip')?.textContent.trim());
     assert(await phone.evaluate(()=>document.querySelector('.movie-callout').hidden),'Winner overlaps speech');
     stage='fallback';const fc=await browser.newContext({viewport:{width:390,height:844}});contexts.push(fc);
     await fc.route('**/app.js',r=>r.fulfill({path:'output/playwright/movie-comedy-app.js',contentType:'text/javascript'}));
     await fc.addInitScript(()=>{const original=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(kind,...args){return String(kind).includes('webgl')?null:original.call(this,kind,...args);};});
     const fallback=await fc.newPage();fallback.on('pageerror',e=>errors.push(e.message));await fallback.goto('http://127.0.0.1:4174');await fallback.locator('#name').fill('Fallback QA');await fallback.locator('#begin').click();await fallback.locator('#room-screen').waitFor({state:'visible'});
     const fallbackCode=new URL(fallback.url()).searchParams.get('room');await fallback.locator('[data-bot="1"]').click();await fallback.getByRole('button',{name:'Start the race'}).click();
-    await fallback.request.get('http://127.0.0.1:4175/?code='+fallbackCode+'&kind=no-move');await fallback.locator('#roll').click();await fallback.locator('.movie-callout').waitFor({state:'visible'});
-    assert(await fallback.locator('.movie-callout').textContent()==='എന്തിനോ വേണ്ടി തിളക്കുന്ന സാമ്പാർ!','Fallback dialogue missing');
+    await fallback.request.get('http://127.0.0.1:4175/?code='+fallbackCode+'&kind=capture');await fallback.locator('#roll').click();
+    await fallback.locator('#board .token.movable[data-seat="0"][data-token="0"]').press('Enter');await fallback.locator('.movie-callout').waitFor({state:'visible'});
+    assert((await fallback.locator('.movie-callout').textContent()).trim().length>0,'Fallback dialogue missing');
     assert(errors.length===0,errors.join('\n'));
-    return {results,captureAndBoast:true,noMove:true,reconnect:true,safeStars:true,reducedMotion:true,victory:true,fallback:true,pageErrors:errors};
+    return {results,captureAndBoast:true,noMoveAfterThreeMisses:true,noMoveOncePerTable:true,reconnect:true,safeStars:true,reducedMotion:true,victory:true,fallback:true,pageErrors:errors};
   }catch(e){console.log('FAILED STAGE: '+stage);throw e;}
   finally{for(const ctx of contexts)await ctx.close();}
 }

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame,roll,move} from '../game.mjs';
-import {moveComedy,noMoveComedy} from '../src/movie-comedy.js';
+import {moveComedy,noMoveComedy,createComedyPacing,createDialogueDeck,MOVIE_POOLS} from '../src/movie-comedy.js';
 const names=['A','B','C','D'];
 function play(seat,old,die,other,p){
   const g=createGame(names);g.turn=seat;g.tokens[seat][0]=old;g.tokens[other][1]=p;
@@ -31,4 +31,57 @@ test('no-move reaction belongs to the player who rolled and ignores a forfeited 
   const g=createGame(names);g.turn=2;roll(g,3,names);
   assert.deepEqual(noMoveComedy(g),{kind:'noMove',seat:2,token:0});
   const h=createGame(names);h.sixes=2;roll(h,6,names);assert.equal(noMoveComedy(h),null);
+});
+
+test('no-move dialogue needs three misses by the same player and appears only once per game',()=>{
+  const p=createComedyPacing(),event={kind:'noMove',seat:0};
+  const observe=(id,seat,phase='waiting')=>p.observeRoll({lastRoll:{id,seat},phase});
+  observe(1,0);assert.equal(p.allow(event,0),false);
+  observe(1,0);observe(2,1);assert.equal(p.allow(event,30000),false);
+  observe(3,0);assert.equal(p.allow(event,60000),false);
+  observe(4,0,'move');observe(5,0);assert.equal(p.allow(event,90000),false);
+  observe(6,0);observe(7,0);assert.equal(p.allow(event,120000),true);
+  observe(8,1);observe(9,1);
+  assert.equal(p.allow({kind:'noMove',seat:1},300000),false,'Other players must not repeat the same line');
+  assert.equal(p.allow(event,600000),false);
+  p.reset();observe(1,0);observe(2,0);observe(3,0);assert.equal(p.allow(event,600000),true);
+});
+
+test('ambient events are spaced across the table while captures can interrupt after eight seconds',()=>{
+  const p=createComedyPacing();
+  assert.equal(p.allow({kind:'chase'},0),true);
+  assert.equal(p.allow({kind:'nearMiss'},19000),false);
+  assert.equal(p.allow({kind:'nearMiss'},20000),true);
+  assert.equal(p.allow({kind:'chase'},39000),false);
+  assert.equal(p.allow({kind:'chase'},40000),true);
+  assert.equal(p.allow({kind:'capture'},45000),false);
+  assert.equal(p.allow({kind:'capture'},48000),true);
+  assert.equal(p.allow({kind:'capture'},59000),false);
+  assert.equal(p.allow({kind:'capture'},60000,true),true);
+  assert.equal(p.allow({kind:'nearMiss'},90000,true),false);
+});
+
+test('each situation cycles every alternative before reuse and shared lines keep a global cooldown',()=>{
+  for(const kind of Object.keys(MOVIE_POOLS)){
+    const deck=createDialogueDeck('ROOM42'),seen=[];
+    for(let i=0;i<MOVIE_POOLS[kind].length;i++)seen.push(deck.pick(kind,i*30000));
+    assert.equal(new Set(seen).size,MOVIE_POOLS[kind].length);
+    assert.ok(seen.every(line=>MOVIE_POOLS[kind].includes(line)));
+    assert.ok(MOVIE_POOLS[kind].includes(deck.pick(kind,300000)));
+  }
+  const deck=createDialogueDeck(''),history=[];
+  for(let i=0;i<24;i++){
+    const now=i*10000,kind=['nearMiss','boast','noMove','victory'][i%4],line=deck.pick(kind,now);
+    if(!line)continue;
+    assert.ok(!history.slice(-2).some(e=>e.line===line),'Adjacent situations repeated a line');
+    assert.ok(!history.some(e=>e.line===line&&now-e.now<90000),'A shared line bypassed its cooldown');
+    history.push({line,now});
+  }
+});
+
+test('room seeds produce consistent choices for two clients and different opening dialogue across rooms',()=>{
+  const a=createDialogueDeck('ROOM42'),b=createDialogueDeck('ROOM42');
+  for(const [i,kind] of ['capture','boast','nearMiss','chase'].entries())assert.equal(a.pick(kind,i*30000),b.pick(kind,i*30000));
+  const starts=new Set(['A','B','C','D'].map(seed=>createDialogueDeck(seed).pick('chase',0)));
+  assert.equal(starts.size,4);
 });

@@ -4,7 +4,7 @@ import { socketAddress, inviteAddress } from './hosting.js';
 import { createRoomVoice } from './voice.js';
 import {GIFT_DURATION,OUTFITS} from '../forest-gifts.mjs';
 import {outfitSvg} from './outfit-svg.js';
-import {createMovieComedy,moveComedy,noMoveComedy,MOVIE_LINES} from './movie-comedy.js';
+import {createMovieComedy,moveComedy,noMoveComedy} from './movie-comedy.js';
 const backendUrl = typeof __LUDO_BACKEND_URL__ === 'string' ? __LUDO_BACKEND_URL__ : '';
 const $ = id => document.getElementById(id);
 const PALETTE = ['#df5e49','#64b85d','#e9b13e','#409acb'];
@@ -344,7 +344,7 @@ let visualFresh=true,visualRoom='',visualRevision=-1,visualMoveId=null,visualEpo
 let visualRollId=null,comedyTimer;
 function resetVisuals(next) {
   visualEpoch++; visualQueue=[]; visualBusy=false;
-  clearTimeout(comedyTimer);movieComedy.reset();
+  clearTimeout(comedyTimer);movieComedy.reset(next.code===visualRoom&&!!next.game&&next.game.revision>=visualRevision);
   jungleView?.resetCaptures();
   for(const el of tokenNodes.values()) {el.getAnimations().forEach(a=>a.cancel());el.classList.remove('walking','returning','reacting','capture-prank');}
   for(let s=0;s<4;s++) for(let t=0;t<4;t++) visualPositions.set(s+'-'+t,next.game?.tokens[s][t]??-1);
@@ -359,6 +359,7 @@ function prepareVisuals(next) {
   visualRevision=g.revision;
   if(g.lastRoll&&g.lastRoll.id!==visualRollId){
     visualRollId=g.lastRoll.id;clearTimeout(comedyTimer);
+    movieComedy.observeRoll(g);
     const reaction=noMoveComedy(g),epoch=visualEpoch,rollId=visualRollId;
     if(reaction)comedyTimer=setTimeout(()=>{
       if(epoch===visualEpoch&&room?.game?.lastRoll?.id===rollId&&!visualBusy)movieComedy.start(reaction);
@@ -577,8 +578,8 @@ function updateTimer() {
   if($('dance-countdown')) $('dance-countdown').textContent=seconds+'s';
   if(g.phase==='celebration'&&$('victory-quip')){
     const age=Math.max(0,Date.now()+serverOffset-g.celebration.startedAt);
-    const quips=[MOVIE_LINES.victory,'Oops… stuck the landing! 🤸','Keep up, jungle crew! 😉','Victory looks good on us! ✨'];
-    $('victory-quip').textContent=quips[Math.floor(age/3500)%quips.length];
+    const quips=[movieComedy.victoryLine(g.celebration.startedAt),'Oops… stuck the landing! 🤸','Keep up, jungle crew! 😉','Victory looks good on us! ✨'];
+    $('victory-quip').textContent=quips[Math.min(quips.length-1,Math.floor(age/3500))];
   }
   $('timer').textContent=g.phase==='done'?'':seconds+'s';
   const duration=g.phase==='celebration'?(g.celebration.endsAt-g.celebration.startedAt)/1000:45;

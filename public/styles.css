@@ -207,7 +207,7 @@ body.scene-3d{background:#123d2e}
 @media(max-width:650px){.scene-3d .winner-layer.dance-banner{left:13%;right:13%;padding:8px}.winner-layer.dance-banner h2{font-size:17px}.winner-layer.dance-banner p{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.token.victory-dance .animal-idle{animation:none!important}}
 /* One compact, nonblocking Malayalam reaction bubble. */
-.movie-callout{position:absolute;z-index:6;transform:translate(-50%,-100%);box-sizing:border-box;width:max-content;max-width:53%;padding:8px 12px;border:2px solid #dfb25b;border-radius:16px 16px 16px 3px;background:#4e3423f5;color:#fff1b5;font-family:system-ui,sans-serif;font-size:clamp(12px,2.5vw,17px);font-weight:700;line-height:1.65;text-align:center;overflow-wrap:anywhere;pointer-events:none;box-shadow:0 3px 0 #261e13}
+.movie-callout{position:absolute;z-index:6;transform:translate(-50%,-100%);box-sizing:border-box;width:max-content;max-width:min(53%,340px);padding:8px 12px;border:2px solid #dfb25b;border-radius:16px 16px 16px 3px;background:#4e3423f5;color:#fff1b5;font-family:system-ui,sans-serif;font-size:clamp(12px,2.5vw,15px);font-weight:700;line-height:1.5;text-align:center;overflow-wrap:anywhere;pointer-events:none;box-shadow:0 3px 0 #261e13}
 .movie-callout[hidden]{display:none}
 .webgl-fallback .token.movie-react .animal-idle{animation:movie-shrug .7s ease-in-out 2}
 @keyframes movie-shrug{0%,100%{transform:rotate(0)}35%{transform:rotate(-7deg)}70%{transform:rotate(7deg)}}
