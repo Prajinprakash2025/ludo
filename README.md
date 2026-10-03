@@ -1,4 +1,4 @@
-# Ludo Loop
+# Pakidakali
 
 A jungle adventure, 2–4 player Ludo game with a real 3D board, live room codes, bots, reconnects, emotes, optional sound, room voice chat, and rematches. Each player uses their own browser.
 

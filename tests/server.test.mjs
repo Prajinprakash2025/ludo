@@ -47,7 +47,7 @@ test('four-player rooms protect turns, dice and legal moves, and reconnect seats
     assert.equal((await rejoined.wait(m=>m.type==='joined')).seat,0);
     assert.equal((await rejoined.wait(m=>m.type==='state')).room.game.tokens[0][0],0);
     const page=await fetch('http://127.0.0.1:'+app.server.address().port);
-    assert.equal(page.status,200);assert.match(await page.text(),/LUDO/);
+    assert.equal(page.status,200);assert.match(await page.text(),/Pakidakali/);
     assert.equal((await fetch('http://127.0.0.1:'+app.server.address().port+'/missing')).status,404);
   } finally {clients.forEach(c=>c.ws.terminate());await app.close();}
 });

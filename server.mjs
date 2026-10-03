@@ -11,7 +11,7 @@ import { createVoiceSignaling } from './voice-server.mjs';
 const root = fileURLToPath(new URL('./public/',import.meta.url));
 const TURN_MS = 45000;
 const EMOTES = ['Nice move! ✨','Oops! 🙈','Let’s go! 🚀','Good game! 🤝'];
-const MIME = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8'};
+const MIME = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.svg':'image/svg+xml'};
 export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, botDelay = 1000,
   allowedOrigins = process.env.ALLOWED_ORIGINS || '', publicUrl = process.env.PUBLIC_URL || '', voiceConfig} = {}) {
   const origins = new Set(allowedOrigins.split(',').map(x => x.trim()).filter(Boolean).map(value => {
@@ -24,7 +24,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
   const rooms = new Map();
   const server = http.createServer(async (req,res) => {
     const path = new URL(req.url,'http://localhost').pathname;
-    const files = {'/':'index.html','/app.js':'app.js','/styles.css':'styles.css','/game.mjs':'../game.mjs'};
+    const files = {'/':'index.html','/app.js':'app.js','/styles.css':'styles.css','/game.mjs':'../game.mjs','/robots.txt':'robots.txt','/sitemap.xml':'sitemap.xml','/favicon.svg':'favicon.svg'};
     const file = files[path];
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','same-origin');
@@ -254,9 +254,9 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const app = createLudoServer();
   if (process.env.DOMAIN_SOCKET) {
-    app.server.listen(process.env.DOMAIN_SOCKET,() => console.log('Ludo Loop ready on hosting socket'));
+    app.server.listen(process.env.DOMAIN_SOCKET,() => console.log('Pakidakali ready on hosting socket'));
   } else {
     const port = Number(process.env.PORT || 4173);
-    app.server.listen(port,'0.0.0.0',() => console.log('Ludo Loop ready at http://localhost:'+port));
+    app.server.listen(port,'0.0.0.0',() => console.log('Pakidakali ready at http://localhost:'+port));
   }
 }
