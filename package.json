@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check server.mjs && node --check voice-server.mjs && node --check game.mjs && node --check forest-gifts.mjs && node --check src/app.js && node --check src/voice.js && node --check src/world3d.js && node --check src/capture3d.js && node --check src/forest-gifts3d.js && node --check src/outfit-svg.js && node --check public/app.js",
+    "check": "node --check server.mjs && node --check voice-server.mjs && node --check game.mjs && node --check forest-gifts.mjs && node --check src/app.js && node --check src/voice.js && node --check src/world3d.js && node --check src/movie-comedy.js && node --check src/capture3d.js && node --check src/forest-gifts3d.js && node --check src/outfit-svg.js && node --check public/app.js",
     "build": "node scripts/build.mjs"
   },
   "dependencies": {

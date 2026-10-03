@@ -1,8 +1,8 @@
 import * as T from 'three';
 
 // A reusable, three-draw-call burst. It never changes authoritative game state.
-export function createCaptureEffects({scene,camera,board,reduced,getRoom,diagnostics}) {
-  const duration=1350,root=new T.Group(),dummy=new T.Object3D(),projected=new T.Vector3();
+export function createCaptureEffects({scene,camera,reduced,getRoom,diagnostics}) {
+  const duration=1350,root=new T.Group(),dummy=new T.Object3D();
   const cameraHome=camera.position.clone();
   const star=new T.Shape();
   for(let i=0;i<10;i++){
@@ -18,12 +18,9 @@ export function createCaptureEffects({scene,camera,board,reduced,getRoom,diagnos
     mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);mesh.frustumCulled=false;root.add(mesh);return mesh;
   });
   root.visible=false;scene.add(root);
-  const callout=document.createElement('div');callout.className='capture-callout';callout.hidden=true;
-  callout.setAttribute('aria-hidden','true');board.append(callout);
-  const quips=['പിടിച്ചേ! 🐾','വീട്ടിൽ പോടാ! 😂','വീണ്ടും വാ! 😜'];
   let current=null;
   function reset(){
-    current=null;root.visible=false;callout.hidden=true;camera.position.copy(cameraHome);
+    current=null;root.visible=false;camera.position.copy(cameraHome);
     diagnostics.capture=null;
   }
   function start(move,point){
@@ -32,7 +29,6 @@ export function createCaptureEffects({scene,camera,board,reduced,getRoom,diagnos
     current={started:performance.now(),room:getRoom().code,revision:getRoom().game.revision,
       seat:move.seat,token:move.token,victims:new Set(move.captured.map(p=>p.seat+'-'+p.token)),point};
     root.position.set(point.x,.65,point.z);
-    callout.textContent=quips[((move.id%quips.length)+quips.length)%quips.length];callout.hidden=false;
   }
   function update(now){
     if(!current)return;
@@ -54,9 +50,6 @@ export function createCaptureEffects({scene,camera,board,reduced,getRoom,diagnos
       }
       burst.instanceMatrix.needsUpdate=true;
     });
-    projected.set(current.point.x,2.45,current.point.z).project(camera);
-    callout.style.left=Math.max(25,Math.min(75,(projected.x*.5+.5)*100))+'%';
-    callout.style.top=Math.max(26,Math.min(65,(-projected.y*.5+.5)*100))+'%';
     diagnostics.capture={seat:current.seat,token:current.token,victims:[...current.victims],age,
       routine:['belly-laugh','clap','head-wiggle','wink'][current.seat],particles:root.visible?16:0,reducedMotion:!animated,poses:[]};
   }
@@ -98,5 +91,5 @@ export function createCaptureEffects({scene,camera,board,reduced,getRoom,diagnos
       diagnostics.capture?.poses.push({seat:a.seat,token:a.token,height:a.body.position.y,spin:a.body.rotation.y,headTilt:a.head.rotation.z,rightEye:a.eyeParts[1].pupil.scale.y});
     }
   }
-  return {start,update,pose,reset,duration,dispose(){reset();callout.remove();scene.remove(root);bursts.forEach(b=>b.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}};
+  return {start,update,pose,reset,duration,dispose(){reset();scene.remove(root);bursts.forEach(b=>b.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}};
 }

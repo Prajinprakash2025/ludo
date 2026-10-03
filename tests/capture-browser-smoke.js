@@ -54,7 +54,7 @@ async (page) => {
       // Observe both clients concurrently so the 1.35-second effect cannot expire.
       const states=await Promise.all([phone,remote].map(async p=>{
         await p.waitForFunction(s=>window.jungleScene?.capture?.seat===s&&window.jungleScene.capture.age>.4&&window.jungleScene.capture.age<.8,seat);
-        return p.evaluate(()=>({effect:window.jungleScene.capture,text:document.querySelector('.capture-callout').textContent,visible:!document.querySelector('.capture-callout').hidden}));
+        return p.evaluate(()=>({effect:window.jungleScene.capture,text:document.querySelector('.movie-callout').textContent,visible:!document.querySelector('.movie-callout').hidden}));
       }));
       for(const s of states){assert(s.visible&&s.text.length>2,'Missing funny caption');assert(s.effect.particles===16,'Particle budget wrong');assert(s.effect.poses.some(p=>p.seat===(seat+1)%4&&p.height>.5&&Math.abs(p.spin)>1),'Victim did not spin and fly: '+JSON.stringify(s.effect));}
       if(seat===0)assert(await phone.evaluate(()=>window.captureAudioSweeps.length)===0,'Muted capture made sound');
@@ -71,14 +71,14 @@ async (page) => {
     for(const p of [phone,remote])await p.waitForFunction(()=>!window.jungleScene.capture&&[...document.querySelectorAll('#board .token[data-seat="1"]')].every(el=>el.dataset.visualStep==='-1'));
     stage='safe square';await seed('safe');await play(0);
     await phone.waitForFunction(()=>document.querySelector('#board .token[data-seat="0"][data-token="0"]').dataset.visualStep==='13'&&!document.querySelector('#board .walking'));
-    assert(await phone.locator('.capture-callout').isHidden(),'Safe move played capture caption');
+    assert(await phone.locator('.movie-callout').isHidden(),'Safe move played capture caption');
     assert(await phone.locator('#board .token[data-seat="1"][data-token="0"]').getAttribute('data-visual-step')==='0','Safe token captured');
     stage='reduced motion';await phone.emulateMedia({reducedMotion:'reduce'});await remote.emulateMedia({reducedMotion:'reduce'});
     await seed('capture');await play(0);await phone.waitForFunction(()=>window.jungleScene.capture?.reducedMotion);
     assert(await phone.evaluate(()=>window.jungleScene.capture.particles===0&&window.jungleScene.capture.poses.length===0),'Reduced motion still animates');
     for(const p of [phone,remote])await p.waitForFunction(()=>document.querySelector('#board .token[data-seat="1"][data-token="0"]').dataset.visualStep==='-1');
     stage='reconnect';await phone.reload();await phone.waitForFunction(()=>window.jungleScene?.frames>3&&!document.querySelector('#room-screen').hidden);
-    assert(await phone.locator('.capture-callout').isHidden(),'Reconnect replayed old capture');
+    assert(await phone.locator('.movie-callout').isHidden(),'Reconnect replayed old capture');
     assert(await phone.locator('#board .returning').count()===0,'Reconnect left return effect');
     assert(await phone.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'New mobile overflow');
     assert(!errors.length,errors.join('\n'));

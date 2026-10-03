@@ -4,7 +4,7 @@ import {createCaptureEffects} from './capture3d.js';
 import {createForestGiftEffects} from './forest-gifts3d.js';
 
 // A visual scene only: token routes and legal moves remain in the existing client.
-export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTime=()=>Date.now(),colors,track,lanes,yards,safe}) {
+export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getServerTime=()=>Date.now(),colors,track,lanes,yards,safe}) {
   const phoneLayout=()=>innerWidth<650 || matchMedia('(pointer: coarse)').matches;
   const mobile=phoneLayout(), reduced=matchMedia('(prefers-reduced-motion: reduce)');
   let renderer;
@@ -469,6 +469,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
   const diagnostics={renderer:'WebGL 3D',frames:0,tiles:tileMeshes.length,animals:16,waterfalls:2,torchCount:torches.length,drawCalls:0,fps:0,performanceVersion:2,characterDetail:'full'};
   const captureEffects=createCaptureEffects({scene,camera,board,reduced,getRoom,diagnostics});
   const forestGifts=createForestGiftEffects({scene,camera,board,animals,track,reduced,getRoom,diagnostics});
+  const comedyPoint=new T.Vector3();
   function capture(move){
     const el=tokenNodes.get(move.seat+'-'+move.token),transform=getComputedStyle(el).transform;
     const matrix=transform==='none'?new DOMMatrix():new DOMMatrix(transform);
@@ -568,6 +569,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
     const dt=now-lastFrame;lastFrame=now;frameMs+=dt;frames++;
     const time=reduced.matches?0:now/1000;
     captureEffects.update(now);
+    comedy?.update(now);diagnostics.comedy=comedy?.snapshot()??null;
     waterMaterial.uniforms.time.value=time;
     fireMaterial.uniforms.time.value=time;
     diagnostics.waterTime=time;diagnostics.fireTime=time;
@@ -733,8 +735,14 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
         }
       }
       if(!winning)captureEffects.pose(a,now);
+      if(!winning&&!walking&&!emote)comedy?.pose(a,now);
       if(!winning)forestGifts.pose(a,now);
       a.g.updateMatrixWorld();
+      if(comedy?.matches(a)){
+        comedyPoint.set(0,1.9,0).applyMatrix4(a.g.matrixWorld).project(camera);
+        comedy.anchor((comedyPoint.x*.5+.5)*100,(-comedyPoint.y*.5+.5)*100);
+        if(diagnostics.comedy)diagnostics.comedy.pose={headYaw:a.head.rotation.y,headTilt:a.head.rotation.z,rightArm:a.arms[1].rotation.z};
+      }
       if(inverse&&room&&legal)projectedHit(a,el,matrix,rect,inverse);
     }
     diagnostics.emotes=Array.from(activeEmotes.values()).map(({seat,kind,participants,jumpHeight,strength})=>({seat,kind,participants,jumpHeight,strength}));

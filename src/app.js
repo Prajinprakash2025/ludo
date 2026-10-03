@@ -4,6 +4,7 @@ import { socketAddress, inviteAddress } from './hosting.js';
 import { createRoomVoice } from './voice.js';
 import {GIFT_DURATION,OUTFITS} from '../forest-gifts.mjs';
 import {outfitSvg} from './outfit-svg.js';
+import {createMovieComedy,moveComedy,noMoveComedy,MOVIE_LINES} from './movie-comedy.js';
 const backendUrl = typeof __LUDO_BACKEND_URL__ === 'string' ? __LUDO_BACKEND_URL__ : '';
 const $ = id => document.getElementById(id);
 const PALETTE = ['#df5e49','#64b85d','#e9b13e','#409acb'];
@@ -340,8 +341,10 @@ for(let s=0;s<4;s++) for(let t=0;t<4;t++) {
 }
 const visualPositions=new Map(), reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 let visualFresh=true,visualRoom='',visualRevision=-1,visualMoveId=null,visualEpoch=0,visualQueue=[],visualBusy=false;
+let visualRollId=null,comedyTimer;
 function resetVisuals(next) {
   visualEpoch++; visualQueue=[]; visualBusy=false;
+  clearTimeout(comedyTimer);movieComedy.reset();
   jungleView?.resetCaptures();
   for(const el of tokenNodes.values()) {el.getAnimations().forEach(a=>a.cancel());el.classList.remove('walking','returning','reacting','capture-prank');}
   for(let s=0;s<4;s++) for(let t=0;t<4;t++) visualPositions.set(s+'-'+t,next.game?.tokens[s][t]??-1);
@@ -351,13 +354,21 @@ function prepareVisuals(next) {
   const g=next.game;
   if(visualFresh || visualRoom!==next.code || !g || g.revision<visualRevision) {
     resetVisuals(next); visualFresh=false; visualRoom=next.code;
-    visualMoveId=g?.lastMove?.id??null; visualRevision=g?.revision??-1; return;
+    visualMoveId=g?.lastMove?.id??null;visualRollId=g?.lastRoll?.id??null; visualRevision=g?.revision??-1; return;
   }
   visualRevision=g.revision;
+  if(g.lastRoll&&g.lastRoll.id!==visualRollId){
+    visualRollId=g.lastRoll.id;clearTimeout(comedyTimer);
+    const reaction=noMoveComedy(g),epoch=visualEpoch,rollId=visualRollId;
+    if(reaction)comedyTimer=setTimeout(()=>{
+      if(epoch===visualEpoch&&room?.game?.lastRoll?.id===rollId&&!visualBusy)movieComedy.start(reaction);
+    },680);
+  }
   if(g.lastMove && g.lastMove.id!==visualMoveId) {
+    clearTimeout(comedyTimer);
     visualMoveId=g.lastMove.id;
     jungleView?.deferGift(g.lastMove.gift);
-    visualQueue.push({...g.lastMove,captured:g.lastMove.captured.map(x=>({...x}))});
+    visualQueue.push({...g.lastMove,comedy:moveComedy(g,g.lastMove),captured:g.lastMove.captured.map(x=>({...x}))});
     queueMicrotask(runVisualQueue);
   }
 }
@@ -379,6 +390,7 @@ async function runVisualQueue() {
   visualBusy=true; const epoch=visualEpoch;updateButtons();paintTokens();
   while(visualQueue.length && epoch===visualEpoch) {
     const m=visualQueue.shift(),el=tokenNodes.get(m.seat+'-'+m.token);
+    movieComedy.clear();
     el.classList.add('walking');el.classList.remove('finished');
     placeVisual(m.seat,m.token,m.old);
     const steps=m.old<0?[0]:Array.from({length:m.next-m.old},(_,i)=>m.old+i+1);
@@ -394,11 +406,11 @@ async function runVisualQueue() {
       placeVisual(m.seat,m.token,p);
     }
     el.classList.remove('walking');
+    movieComedy.start(m.comedy);
     const safe=m.next<=50 && SAFE.has((m.seat*13+m.next)%52);
     if(safe || m.next===FINISH || m.captured.length) landingEffect(m.seat,m.token,m.next,m.captured.length?'capture':'leaf');
     if(m.captured.length){
       jungleView?.capture(m);sound('capture');el.classList.add('capture-prank');
-      if(!jungleView)toast(['പിടിച്ചേ! 🐾','വീട്ടിൽ പോടാ! 😂','വീണ്ടും വാ! 😜'][((m.id%3)+3)%3]);
       $('live-announcement').textContent=(room.seats[m.seat]?.name||LABELS[m.seat])+' captured '+m.captured.length+' explorer'+(m.captured.length>1?'s':'')+'!';
       const start=performance.now(),victims=m.captured.map(c=>({c,node:tokenNodes.get(c.seat+'-'+c.token)}));
       victims.forEach(({node})=>node.classList.add('returning'));
@@ -416,6 +428,7 @@ async function runVisualQueue() {
       el.classList.remove('capture-prank');
     }
     if(m.gift){
+      movieComedy.clear();
       jungleView?.gift(m.gift);sound('emote');
       const message=(room.seats[m.seat]?.name||LABELS[m.seat])+' got the '+OUTFITS[m.gift.outfit]+' outfit from the monkey!';
       $('live-announcement').textContent=message;
@@ -556,6 +569,7 @@ function render() {
 }
 let observedGiftReady=0;
 function updateTimer() {
+  movieComedy.update(performance.now());
   if (!room?.game) return;
   const g=room.game;
   if(g.giftUntil && observedGiftReady!==g.giftUntil && Date.now()+serverOffset>=g.giftUntil){observedGiftReady=g.giftUntil;updateButtons();paintTokens();}
@@ -563,7 +577,7 @@ function updateTimer() {
   if($('dance-countdown')) $('dance-countdown').textContent=seconds+'s';
   if(g.phase==='celebration'&&$('victory-quip')){
     const age=Math.max(0,Date.now()+serverOffset-g.celebration.startedAt);
-    const quips=['Catch me if you can! 😜','Oops… stuck the landing! 🤸','Keep up, jungle crew! 😉','Victory looks good on us! ✨'];
+    const quips=[MOVIE_LINES.victory,'Oops… stuck the landing! 🤸','Keep up, jungle crew! 😉','Victory looks good on us! ✨'];
     $('victory-quip').textContent=quips[Math.floor(age/3500)%quips.length];
   }
   $('timer').textContent=g.phase==='done'?'':seconds+'s';
@@ -582,5 +596,6 @@ function celebrate() {
   setTimeout(()=>{ $('confetti').innerHTML=''; },4500);
 }
 paintTokens(); showDice(6);
-const jungleView=createJungleScene({board:$('board'),tokenNodes,getRoom:()=>room,getSeat:()=>seat,getServerTime:()=>Date.now()+serverOffset,colors:PALETTE,track:TRACK,lanes:LANES,yards:YARDS,safe:SAFE});
+const movieComedy=createMovieComedy({board:$('board'),tokenNodes,reduced:reducedMotion,getRoom:()=>room});
+const jungleView=createJungleScene({board:$('board'),tokenNodes,comedy:movieComedy,getRoom:()=>room,getSeat:()=>seat,getServerTime:()=>Date.now()+serverOffset,colors:PALETTE,track:TRACK,lanes:LANES,yards:YARDS,safe:SAFE});
 connect();
