@@ -256,3 +256,21 @@ Six styles are available: explorer cap/glasses, pirate hat/moustache, leaf crown
 This change is frontend-only. Netlify rebuilds from main; refresh every player's browser after deployment. No additional PythonAnywhere update is required for the dialogue feature. Chase, one-square near miss, capture, bonus-turn boast and no-legal-move moments show one Malayalam text bubble with existing character-joint reactions. Seventeen distinct short excerpts rotate by situation, including Suraj, Mohanlal, Salim Kumar, Pappu and Harisree Ashokan. The victory opening is selected once per celebration; subsequent quips do not loop.
 
 Each situation uses its alternatives before recycling a line. Shared lines have a 90-second cooldown across situations and cannot repeat among the last two captions. Ambient captions are spaced by at least 20 seconds across the table and 30 seconds per situation. A capture can interrupt after eight seconds, with at least twelve seconds between capture dialogues. No-move commentary appears only after three consecutive failed rolls by one player, at most once per game across the table. Reconnect retains current pacing history and does not replay old dialogue; a fresh game clears it. Captions wrap within 340px and 53% of the board width. Text reactions add no turn pause, geometry, network traffic or movie audio.
+
+## Choose a unique forest character — 3 October 2026
+
+The create/join screen now offers Bear, Panda, Deer, Fox, Rabbit, Tiger, Monkey and Raccoon. Taken choices update while a visitor enters a room code. The server validates and reserves each choice atomically, including bots and simultaneous joins. Disconnect reserves the choice for resume; leaving releases it. Selections stay through captures, gifts, wins and rematches. Four seats and their camp colors still identify turn order and routes; selecting an animal does not add seats or change the rules.
+
+This update needs the PythonAnywhere backend as well as the automatically rebuilt Netlify frontend. Run in the existing console:
+
+```bash
+source /home/ludoloop/nvm/nvm.sh
+nvm use 22
+cd /home/ludoloop/ludo
+git pull --ff-only && pa website reload --domain ludoloop.pythonanywhere.com
+curl -sS https://ludoloop.pythonanywhere.com/health
+```
+
+Health should include `"characterVersion":1`. If the server is still on the older version, the character picker stays unavailable while regular play remains available. No packages, startup-command changes or edits to private voice-config.json are required. Reload clears in-memory rooms; refresh every player's browser and create a new room. On two phones, choose different animals, confirm taken choices, play a move and capture, refresh to resume, then test outfits and victory.
+
+Only sixteen game animals are rendered. Selected models use the existing joints, sphere detail, colors, highlights and outfit attachments. The scene rebuilds when the lobby's selected species change; it is reused during play. Replaced scenes dispose their canvas, observers, GPU resources and context. The picker uses static SVG portraits.

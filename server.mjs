@@ -7,6 +7,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import * as rules from './game.mjs';
 import { createVoiceSignaling } from './voice-server.mjs';
+import {availableCharacter} from './characters.mjs';
 
 const root = fileURLToPath(new URL('./public/',import.meta.url));
 const TURN_MS = 45000;
@@ -30,7 +31,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     res.setHeader('Referrer-Policy','same-origin');
     res.setHeader('Content-Security-Policy',"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws: wss:; media-src 'self' blob:; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'");
     res.setHeader('Cache-Control','no-cache');
-    if (path === '/health') { res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:true,voiceVersion:1})); return; }
+    if (path === '/health') { res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:true,voiceVersion:1,characterVersion:1})); return; }
     if (!file) { res.writeHead(404); res.end('Not found'); return; }
     try {
       const ext = file.endsWith('.mjs') ? '.js' : file.slice(file.lastIndexOf('.'));
@@ -44,20 +45,24 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
   const names = r => r.seats.map(p => p?.name || 'Player');
   function publicRoom(r) {
     return {code:r.code,owner:r.owner,mode:r.mode,revision:r.revision,
-      seats:r.seats.map(p => p ? {name:p.name,bot:p.bot,connected:p.bot || !!p.ws,id:p.id} : null),
+      seats:r.seats.map(p => p ? {name:p.name,character:p.character,bot:p.bot,connected:p.bot || !!p.ws,id:p.id} : null),
       game:r.game,serverTime:Date.now()};
   }
   function broadcast(r) {
     const data = {type:'state',room:publicRoom(r)};
     for (const p of r.seats) if (p?.ws) send(p.ws,data);
+    for(const watcher of r.watchers)sendOptions(watcher,r);
     r.touched = Date.now();
   }
+  function sendOptions(ws,r){send(ws,{type:'room-options',code:r.code,started:!!r.game,seats:r.seats.map(p=>p?{name:p.name,character:p.character}:null)});}
+  function stopWatching(ws){ws.previewRoom?.watchers.delete(ws);ws.previewRoom=null;}
   function deadline(r) {
     if (r.game?.phase === 'celebration') r.game.deadline = r.game.celebration.endsAt;
     else if (r.game && r.game.phase !== 'done') r.game.deadline = Math.max(Date.now(),r.game.giftUntil||0)+turnMs;
     r.botAt = Math.max(Date.now(),r.game?.giftUntil||0)+botDelay;
   }
   function attach(ws,r,seat) {
+    stopWatching(ws);
     const p = r.seats[seat];
     const paused = !r.seats.some(player => player?.ws);
     if (p.ws && p.ws !== ws) { p.ws.room = null; p.ws.close(4001,'Session opened on another tab'); }
@@ -69,10 +74,11 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     voice.broadcast(r);
   }
   const cleanName = x => typeof x === 'string' ? x.trim().replace(/[\u0000-\u001f<>]/g,'').slice(0,18) || 'Player' : 'Player';
-  function addPlayer(r,ws,name) {
+  function addPlayer(r,ws,name,requested) {
     const seat = r.seats.indexOf(null);
     if (seat < 0) throw new Error('This room is full.');
-    r.seats[seat] = {id:randomUUID(),token:randomUUID(),name:cleanName(name),bot:false,ws:null};
+    const character=availableCharacter(r.seats,requested,seat);
+    r.seats[seat] = {id:randomUUID(),token:randomUUID(),name:cleanName(name),character,bot:false,ws:null};
     if (!r.owner) r.owner = r.seats[seat].id;
     r.revision++;
     attach(ws,r,seat);
@@ -83,15 +89,23 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
   }
   function handle(ws,m) {
     if (!m || typeof m.type !== 'string') throw new Error('Invalid action.');
+    if(m.type==='room-options'){
+      if(ws.room)throw new Error('Leave your room before choosing another.');
+      stopWatching(ws);
+      const code=String(m.code||'').toUpperCase(),r=rooms.get(code);
+      if(!r){send(ws,{type:'room-options',code,missing:true});return;}
+      ws.previewRoom=r;r.watchers.add(ws);sendOptions(ws,r);return;
+    }
     if (m.type === 'create') {
       if (ws.room) throw new Error('Leave your current room first.');
       let code;
       const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       do { code = Array.from({length:6},() => alphabet[randomInt(alphabet.length)]).join(''); } while (rooms.has(code));
-      const r = {code,seats:[null,null,null,null],owner:null,game:null,revision:0,touched:Date.now(),mode:m.mode === 'solo' ? 'solo' : 'friends'};
-      rooms.set(code,r); addPlayer(r,ws,m.name);
+      const r = {code,seats:[null,null,null,null],watchers:new Set(),owner:null,game:null,revision:0,touched:Date.now(),mode:m.mode === 'solo' ? 'solo' : 'friends'};
+      availableCharacter(r.seats,m.character,0);
+      rooms.set(code,r); addPlayer(r,ws,m.name,m.character);
       if (r.mode === 'solo') {
-        for (let i=1;i<4;i++) r.seats[i] = {id:randomUUID(),name:['','Mint Bot','Sunny Bot','Berry Bot'][i],bot:true};
+        for (let i=1;i<4;i++) r.seats[i] = {id:randomUUID(),name:['','Mint Bot','Sunny Bot','Berry Bot'][i],character:availableCharacter(r.seats,undefined,i),bot:true};
         start(r);
       }
       return;
@@ -106,7 +120,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
         attach(ws,r,seat); return;
       }
       if (r.game) throw new Error('This game has started. Join a new room.');
-      addPlayer(r,ws,m.name); return;
+      addPlayer(r,ws,m.name,m.character); return;
     }
     const r = ws.room, p = r?.seats[ws.seat];
     if (!r || !p || p.ws !== ws) throw new Error('Join a room first.');
@@ -137,7 +151,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
         const i = m.seat;
         if (!Number.isInteger(i) || i < 0 || i > 3) throw new Error('Invalid seat.');
         if (r.seats[i] && !r.seats[i].bot) throw new Error('That seat belongs to a player.');
-        r.seats[i] = r.seats[i] ? null : {id:randomUUID(),name:['Ruby Bot','Mint Bot','Sunny Bot','Berry Bot'][i],bot:true};
+        r.seats[i] = r.seats[i] ? null : {id:randomUUID(),name:['Ruby Bot','Mint Bot','Sunny Bot','Berry Bot'][i],character:availableCharacter(r.seats,undefined,i),bot:true};
         r.revision++; broadcast(r); return;
       }
       start(r); return;
@@ -177,6 +191,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
       if (local) base = 'http://'+local.address+':'+server.address().port;
     }
     ws.shareBase = base;
+    send(ws,{type:'capabilities',characterVersion:1});
     ws.isAlive = true;
     ws.on('pong',() => { ws.isAlive = true; });
     ws.on('message',raw => {
@@ -209,6 +224,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
       catch (e) { send(ws,{type:'error',message:e.message || 'That action was not accepted.'}); }
     });
     ws.on('close',() => {
+      stopWatching(ws);
       const r = ws.room, p = r?.seats[ws.seat];
       if (p?.ws === ws) { p.ws = null; voice.clear(r,p); r.revision++; broadcast(r); }
     });

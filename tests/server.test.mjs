@@ -14,6 +14,59 @@ async function client(url) {
   }};
 }
 
+test('character choices are unique under concurrent joins and live availability releases only on leaving',async()=>{
+  const app=createLudoServer();await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));
+  const url='ws://127.0.0.1:'+app.server.address().port,clients=[];
+  try{
+    const a=await client(url);clients.push(a);a.send({type:'create',name:'Rabbit host',character:'rabbit'});
+    const joined=await a.wait(m=>m.type==='joined'),code=joined.code;
+    const watcher=await client(url);clients.push(watcher);watcher.send({type:'room-options',code});
+    const options=await watcher.wait(m=>m.type==='room-options');assert.equal(options.seats[0].character,'rabbit');
+    assert.ok(!JSON.stringify(options).includes(joined.token),'Availability must not reveal resume tokens');
+    const b=await client(url),c=await client(url);clients.push(b,c);
+    b.send({type:'join',code,name:'Tiger B',character:'tiger'});c.send({type:'join',code,name:'Tiger C',character:'tiger'});
+    const results=await Promise.all([b,c].map(p=>p.wait(m=>['joined','error'].includes(m.type))));
+    assert.equal(results.filter(m=>m.type==='joined').length,1);assert.match(results.find(m=>m.type==='error').message,/taken/);
+    const winner=results[0].type==='joined'?b:c,loser=winner===b?c:b;
+    await watcher.wait(m=>m.type==='room-options'&&m.seats.some(p=>p?.character==='tiger'));
+    loser.send({type:'join',code,name:'Monkey',character:'monkey'});await loser.wait(m=>m.type==='joined');
+    const room=app.rooms.get(code);assert.deepEqual(room.seats.filter(Boolean).map(p=>p.character),['rabbit','tiger','monkey']);
+    const saved=results.find(m=>m.type==='joined');winner.ws.close();await delay(30);
+    assert.equal(room.seats[1].character,'tiger','Disconnect must reserve the character for resume');
+    const resumed=await client(url);clients.push(resumed);resumed.send({type:'resume',code,token:saved.token});
+    await resumed.wait(m=>m.type==='joined');assert.equal((await resumed.wait(m=>m.type==='state')).room.seats[1].character,'tiger');
+    resumed.send({type:'leave'});await resumed.wait(m=>m.type==='left');
+    await watcher.wait(m=>m.type==='room-options'&&!m.seats.some(p=>p?.character==='tiger'));
+    watcher.send({type:'join',code,name:'Tiger again',character:'tiger'});await watcher.wait(m=>m.type==='joined');
+    assert.equal(room.watchers.size,0,'Joining must clear the preview subscription');
+    a.send({type:'start'});await a.wait(m=>m.type==='state'&&!!m.room.game);
+    const extra=await client(url);clients.push(extra);extra.send({type:'room-options',code});
+    assert.equal((await extra.wait(m=>m.type==='room-options')).started,true);
+    extra.send({type:'join',code,name:'Late raccoon',character:'raccoon'});assert.match((await extra.wait(m=>m.type==='error')).message,/started/);
+  }finally{clients.forEach(c=>c.ws.terminate());await app.close();}
+});
+
+test('invalid characters are rejected and bots and legacy clients receive distinct available characters',async()=>{
+  const app=createLudoServer();await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));
+  const url='ws://127.0.0.1:'+app.server.address().port,clients=[];
+  try{
+    const a=await client(url);clients.push(a);
+    for(const character of ['dragon',null,0,{},['bear']]){
+      a.send({type:'create',character});assert.match((await a.wait(m=>m.type==='error')).message,/valid/);
+    }
+    assert.equal(app.rooms.size,0,'Invalid creation must not leave orphan rooms');
+    a.send({type:'create',name:'Panda',character:'panda',mode:'solo'});await a.wait(m=>m.type==='joined');
+    const solo=await a.wait(m=>m.type==='state'&&m.room.game);assert.equal(solo.room.seats[0].character,'panda');
+    assert.equal(new Set(solo.room.seats.map(p=>p.character)).size,4);
+    const b=await client(url),legacy=await client(url);clients.push(b,legacy);
+    b.send({type:'create',character:'panda'});const joined=await b.wait(m=>m.type==='joined');
+    legacy.send({type:'join',code:joined.code,name:'Old client'});await legacy.wait(m=>m.type==='joined');
+    const state=await legacy.wait(m=>m.type==='state');assert.equal(state.room.seats[1].character,'bear');
+    b.send({type:'bot',seat:2});const bots=await b.wait(m=>m.type==='state'&&m.room.seats[2]?.bot);
+    assert.equal(new Set(bots.room.seats.filter(Boolean).map(p=>p.character)).size,3);
+  }finally{clients.forEach(c=>c.ws.terminate());await app.close();}
+});
+
 test('monkey gifts synchronize across players, hold bot turns, allow voice and survive resume',async()=>{
   const app=createLudoServer({die:()=>2,giftPick:()=>5,botDelay:20,turnMs:60000});
   await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));

@@ -2,6 +2,7 @@ import * as T from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {createCaptureEffects} from './capture3d.js';
 import {createForestGiftEffects} from './forest-gifts3d.js';
+import {seatCharacter} from '../characters.mjs';
 
 // A visual scene only: token routes and legal moves remain in the existing client.
 export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getServerTime=()=>Date.now(),colors,track,lanes,yards,safe}) {
@@ -9,7 +10,7 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
   const mobile=phoneLayout(), reduced=matchMedia('(prefers-reduced-motion: reduce)');
   let renderer;
   try {renderer=new T.WebGLRenderer({antialias:!mobile,alpha:false,powerPreference:'high-performance'});}
-  catch {document.body.classList.add('webgl-fallback');return null;}
+  catch {document.body.classList.remove('scene-3d');document.body.classList.add('webgl-fallback');board.dataset.renderer='fallback';return null;}
   renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.5:1.65));
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.02;
@@ -347,9 +348,9 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
     const ball=(p,color,x,y,z,sx,sy=sx,sz=sx,extra={})=>mesh(p,characterSphere,mat(color,extra),x,y,z,sx,sy,sz);
     const g=new T.Group(),body=new T.Group(),head=new T.Group(),eyes=new T.Group();
     g.add(body);head.position.set(0,.98,0);head.rotation.x=-.4;body.add(head);head.add(eyes);
-    const panda=seat===1,fox=seat===3,deer=seat===2;
-    const fur=panda?'#fff6df':fox?'#e77d25':deer?'#d3a252':'#a76535';
-    const cream=panda?'#fff7e6':'#efd8a7',dark=panda?'#18251f':'#694326';
+    const character=seatCharacter(getRoom()?.seats[seat],seat),{fur,cream,dark}=character;
+    const panda=character.id==='panda',fox=character.id==='fox',deer=character.id==='deer';
+    const rabbit=character.id==='rabbit',tiger=character.id==='tiger',monkey=character.id==='monkey',raccoon=character.id==='raccoon';
     ball(body,colors[seat],0,.51,0,.26,.33,.2);
     ball(body,cream,0,.6,.185,.16,.2,.025);
     const feet=[],arms=[];
@@ -366,24 +367,49 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
     ball(body,'#eece68',.15,.54,.225,.045,.055,.021);
     const scarf=mesh(body,scarfGeo,mat(colors[seat]),0,.83,.19);scarf.rotation.z=Math.PI;
     ball(head,fur,0,0,0,.36,.33,.3);
-    if(fox){
+    if(fox||raccoon){
       for(const dx of [-.26,.26]){
         const ear=mesh(head,new T.ConeGeometry(.14,.32,3),mat(fur),dx,.3,-.015);ear.rotation.z=dx<0?.22:-.22;
         mesh(head,new T.ConeGeometry(.079,.21,3),mat('#ffc592'),dx,.3,.075);
       }
       ball(head,cream,-.14,-.13,.255,.16,.12,.09);ball(head,cream,.14,-.13,.255,.16,.12,.09);
       const tail=ball(body,fur,.32,.41,-.13,.13,.38,.14);tail.rotation.z=-.58;
-      ball(body,cream,.45,.67,-.13,.09,.12,.095);
+      ball(body,raccoon?dark:cream,.45,.67,-.13,.09,.12,.095);
+      if(raccoon)ball(body,dark,.36,.44,-.1,.135,.065,.145);
+    }else if(rabbit){
+      for(const dx of [-.18,.18]){
+        const ear=ball(head,fur,dx,.43,-.01,.11,.34,.085);ear.rotation.z=dx<0?.15:-.15;
+        ball(head,'#edaeae',dx,.45,.067,.055,.24,.019);
+      }
+      ball(head,cream,0,-.14,.27,.21,.135,.085);
+      box(head,'#fffef5',0,-.225,.346,.105,.12,.025,.018);
+      ball(body,cream,.27,.27,-.13,.13,.13,.13);
     }else{
       for(const dx of [-.28,.28]) {
-        ball(head,panda?dark:fur,dx,.24,-.01,.145,.155,.095);
-        ball(head,panda?'#484337':'#d39478',dx,.24,.069,.083,.09,.016);
+        ball(head,panda?dark:fur,dx,.24,-.01,monkey?.19:.145,.155,.095);
+        ball(head,panda?'#484337':monkey?cream:'#d39478',dx,.24,.069,.083,.09,.016);
       }
       ball(head,cream,0,-.14,.27,.21,.135,.085);
     }
+    if(monkey){
+      for(const dx of [-.13,.13])ball(head,cream,dx,.02,.254,.17,.19,.057);
+      const curl=new T.QuadraticBezierCurve3(new T.Vector3(.17,.3,-.18),new T.Vector3(.63,.53,-.25),new T.Vector3(.38,.62,-.12));
+      mesh(body,new T.TubeGeometry(curl,10,.042,6,false),mat(fur));
+    }
+    if(tiger){
+      for(const dx of [-.16,0,.16]){
+        const stripe=ball(head,dark,dx,.23,.215,.027,.095,.02);stripe.rotation.z=dx<0?-.32:dx>0?.32:0;
+      }
+      for(const sign of [-1,1]){
+        for(const y of [-.005,-.09])ball(head,dark,sign*.29,y,.19,.053,.016,.03);
+        cylinder(head,cream,[sign*.18,-.15,.32],[sign*.4,-.12,.27],.009);
+      }
+      cylinder(body,fur,[.22,.28,-.12],[.4,.67,-.15],.055);
+      for(const y of [.4,.54,.66])ball(body,dark,.22+(y-.28)*.46,y,-.145,.06,.027,.061);
+    }
     const eyeParts=[];
     for(const dx of [-.13,.13]) {
-      if(panda){const patch=ball(head,dark,dx,0,.258,.111,.145,.046);patch.rotation.z=dx<0?-.3:.3;}
+      if(panda||raccoon){const patch=ball(head,dark,dx,0,.258,raccoon?.165:.111,raccoon?.09:.145,.046);patch.rotation.z=dx<0?-.3:.3;}
       const pupil=ball(eyes,'#19251b',dx,.015,.305,.045,.064,.026,{roughness:.24});
       const glint=ball(eyes,'#ffffff',dx-.012,.037,.331,.014,.018,.006,{emissive:'#ffffff',emissiveIntensity:.1});
       eyeParts.push({pupil,glint});
@@ -420,7 +446,7 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
       }
       node.material=copies.get(original.uuid).material;
     });
-    scene.add(g);return {g,body,head,eyes,eyeParts,feet,arms,ring,halo,marker,seat,token,phase:seat*.9+token*1.6};
+    scene.add(g);return {g,body,head,eyes,eyeParts,feet,arms,ring,halo,marker,seat,token,character:character.id,dance:character.dance,phase:seat*.9+token*1.6};
   }
   for(let s=0;s<4;s++)for(let t=0;t<4;t++)animals.push(animal(s,t));
   // Keep scenery in static GPU buffers. Only articulated/animated parts need
@@ -466,7 +492,7 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
   preview.innerHTML='';
   let renderHost=preview;preview.append(renderer.domElement);
   let width=0,height=0,lastFrame=0,frames=0,frameMs=0,stopped=false;
-  const diagnostics={renderer:'WebGL 3D',frames:0,tiles:tileMeshes.length,animals:16,waterfalls:2,torchCount:torches.length,drawCalls:0,fps:0,performanceVersion:2,characterDetail:'full'};
+  const diagnostics={renderer:'WebGL 3D',frames:0,tiles:tileMeshes.length,animals:16,characters:[0,1,2,3].map(s=>seatCharacter(getRoom()?.seats[s],s).id),waterfalls:2,torchCount:torches.length,drawCalls:0,fps:0,performanceVersion:2,characterDetail:'full'};
   const captureEffects=createCaptureEffects({scene,camera,board,reduced,getRoom,diagnostics});
   const forestGifts=createForestGiftEffects({scene,camera,board,animals,track,reduced,getRoom,diagnostics});
   const comedyPoint=new T.Vector3();
@@ -638,9 +664,9 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
       else a.g.scale.setScalar(T.MathUtils.lerp(a.g.scale.x,scale,.2));
       a.g.position.set(matrix.e-7.5,.5,matrix.f-7.5);
       if(winning){const [r,c]=yards[a.seat][a.token];a.g.position.set(c-7.5,.5,r-7.5);}
-      const phase=time*(walking?[14,12,15,18][a.seat]:2)+a.phase;
+      const phase=time*(walking?[14,12,15,18][a.dance]:2)+a.phase;
       a.body.position.x=0;
-      a.body.position.y=walking?Math.abs(Math.sin(phase))*(a.seat===2?.16:.095):Math.sin(phase)*.017;
+      a.body.position.y=walking?Math.abs(Math.sin(phase))*(a.dance===2?.16:.095):Math.sin(phase)*.017;
       a.body.rotation.z=walking?Math.sin(phase)*.06:Math.sin(time*.8+a.phase)*.016;
       a.body.rotation.x=0;a.body.rotation.y=0;a.body.scale.set(1,1,1);
       a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*.1);
@@ -679,16 +705,16 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
             // Each animal has its own routine, using only existing body joints.
             const beat=age*7+a.token*.3,sway=Math.sin(beat),step=Math.sin(beat+Math.PI/2);
             a.halo.visible=true;
-            if(a.seat===0){ // Bear: belly bounce and big alternating claps.
+            if(a.dance===0){ // Bear/Monkey: belly bounce and big alternating claps.
               a.body.position.y+=Math.abs(sway)*.16*strength;
               a.body.rotation.z=sway*.13*strength;
               a.body.scale.set(1+step*.04*strength,1-step*.04*strength,1);
               a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*(1.2+sway*.65)*strength);
-            }else if(a.seat===1){ // Panda: playful waddle and shoulder shimmy.
+            }else if(a.dance===1){ // Panda/Raccoon: playful waddle and shoulder shimmy.
               a.body.position.x=sway*.13*strength;
               a.body.rotation.z=sway*.24*strength;a.head.rotation.z=-sway*.2*strength;
               a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*(1+Math.sin(beat+i*Math.PI)*.8)*strength);
-            }else if(a.seat===2){ // Deer: light prancing with a gentle twirl.
+            }else if(a.dance===2){ // Deer/Rabbit: light prancing with a gentle twirl.
               a.body.position.y+=Math.abs(sway)*.3*strength;
               a.body.rotation.y=Math.sin(age*2)*.85*strength;
               a.body.rotation.z=step*.1*strength;
@@ -746,7 +772,7 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
       if(inverse&&room&&legal)projectedHit(a,el,matrix,rect,inverse);
     }
     diagnostics.emotes=Array.from(activeEmotes.values()).map(({seat,kind,participants,jumpHeight,strength})=>({seat,kind,participants,jumpHeight,strength}));
-    diagnostics.victory= victory ? {seats:victory.seats,final:victory.final,endsAt:victory.endsAt,routines:victory.seats.map(s=>['belly-clap','waddle-shimmy','prance-twirl','disco-step'][s]),flips:animals.filter(a=>victory.seats.includes(a.seat)).map(a=>({seat:a.seat,token:a.token,rotation:a.body.rotation.x,height:a.body.position.y}))} : null;
+    diagnostics.victory= victory ? {seats:victory.seats,final:victory.final,endsAt:victory.endsAt,routines:victory.seats.map(s=>['belly-clap','waddle-shimmy','prance-twirl','disco-step'][seatCharacter(room?.seats[s],s).dance]),flips:animals.filter(a=>victory.seats.includes(a.seat)).map(a=>({seat:a.seat,token:a.token,rotation:a.body.rotation.x,height:a.body.position.y}))} : null;
     diagnostics.highlight={seat:highlightedSeat,tokens:highlightedTokens,legalTokens};
     forestGifts.frame(now);
     scene.updateMatrixWorld();
@@ -764,6 +790,14 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
     if(frames>=30){diagnostics.fps=Math.round(1000*frames/frameMs);frames=0;frameMs=0;}
   }
   resize();requestAnimationFrame(tick);
-  renderer.domElement.addEventListener('webglcontextlost',()=>{board.dataset.renderer='lost';},{passive:true});
-  return {resize,pickToken,celebrate,capture,gift:forestGifts.start,deferGift:forestGifts.defer,resetCaptures:()=>{captureEffects.reset();forestGifts.reset();},renderer,scene,camera,diagnostics,dispose(){stopped=true;captureEffects.dispose();forestGifts.dispose();observer.disconnect();visibilityObserver.disconnect();effectObserver.disconnect();window.removeEventListener('scroll',onScroll);renderer.dispose();}};
+  renderer.domElement.addEventListener('webglcontextlost',()=>{if(!stopped)board.dataset.renderer='lost';},{passive:true});
+  return {resize,pickToken,celebrate,capture,gift:forestGifts.start,deferGift:forestGifts.defer,resetCaptures:()=>{captureEffects.reset();forestGifts.reset();},renderer,scene,camera,diagnostics,dispose(){
+    stopped=true;captureEffects.dispose();forestGifts.dispose();observer.disconnect();visibilityObserver.disconnect();effectObserver.disconnect();window.removeEventListener('scroll',onScroll);
+    const geometries=new Set(),allMaterials=new Set(materials.values()),textures=new Set();
+    characterMaterials.forEach(copies=>copies.forEach(({material})=>allMaterials.add(material)));
+    scene.traverse(node=>{if(node.geometry)geometries.add(node.geometry);if(node.material)for(const material of [node.material].flat())allMaterials.add(material);node.shadow?.dispose();});
+    for(const material of allMaterials){for(const value of Object.values(material))if(value?.isTexture)textures.add(value);material.dispose();}
+    for(const geometry of geometries)geometry.dispose();for(const texture of textures)texture.dispose();
+    renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();
+  }};
 }

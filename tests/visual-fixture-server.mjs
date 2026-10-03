@@ -43,7 +43,7 @@ const control=http.createServer((req,res)=>{
   else if(kind==='stack') {die=2;g.tokens[0]=[13,13,-1,-1];g.tokens[1]=[0,0,0,0];}
   r.game=kind==='lobby'?null:g;
   const packet=JSON.stringify({type:'state',room:{code:r.code,owner:r.owner,mode:r.mode,revision:r.revision,
-    seats:r.seats.map(p=>p?{name:p.name,bot:p.bot,connected:p.bot||!!p.ws,id:p.id}:null),game:r.game,serverTime:Date.now()}});
+    seats:r.seats.map(p=>p?{name:p.name,character:p.character,bot:p.bot,connected:p.bot||!!p.ws,id:p.id}:null),game:r.game,serverTime:Date.now()}});
   for(const p of r.seats) if(p?.ws?.readyState===1) p.ws.send(packet);
   res.end('ok');
 });

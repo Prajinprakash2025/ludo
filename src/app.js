@@ -5,11 +5,13 @@ import { createRoomVoice } from './voice.js';
 import {GIFT_DURATION,OUTFITS} from '../forest-gifts.mjs';
 import {outfitSvg} from './outfit-svg.js';
 import {createMovieComedy,moveComedy,noMoveComedy} from './movie-comedy.js';
+import {CHARACTERS,DEFAULT_CHARACTERS,seatCharacter} from '../characters.mjs';
+import {characterSvg} from './character-svg.js';
 const backendUrl = typeof __LUDO_BACKEND_URL__ === 'string' ? __LUDO_BACKEND_URL__ : '';
 const $ = id => document.getElementById(id);
 const PALETTE = ['#df5e49','#64b85d','#e9b13e','#409acb'];
 const LABELS = ['Bear','Panda','Deer','Fox'];
-const AVATARS = ['🐻','🐼','🦌','🦊'];
+const explorer=s=>seatCharacter(room?.seats[s],s);
 const NS = 'http://www.w3.org/2000/svg';
 // Use the existing room emote messages so active rooms keep their connections.
 const CHARACTER_EMOTES=[
@@ -22,6 +24,7 @@ let ws, room = null, seat = -1, myId = '', session = null, pending = null;
 let joining = false, reconnectTimer, reconnectCount = 0, retry = true;
 let soundOn = false, audio, toastTimer, lastRollId = null, lastWinner = null;
 let diceAnimatingUntil = 0, serverOffset = 0, menu = 'create';
+let selectedCharacter='bear',characterOptions=null,characterVersion=0,optionsTimer;
 const query = new URLSearchParams(location.search);
 const initialCode = (query.get('room') || '').toUpperCase();
 try {
@@ -88,7 +91,13 @@ function connect() {
   socket.onmessage = e => {
     if (socket !== ws) return;
     const m = JSON.parse(e.data);
-    if (m.type === 'joined') {
+    if(m.type==='capabilities'){
+      characterVersion=m.characterVersion||0;requestCharacterOptions();renderCharacterPicker();
+    }else if(m.type==='room-options'){
+      if(menu==='join'&&m.code===$('room-input').value.trim().toUpperCase()){
+        characterOptions=m;renderCharacterPicker();updateButtons();
+      }
+    }else if (m.type === 'joined') {
       visualFresh=true;
       session = {code:m.code,token:m.token,seat:m.seat,id:m.id,shareBase:m.shareBase};
       seat = m.seat; myId = m.id; joining = false;
@@ -98,11 +107,11 @@ function connect() {
     } else if (m.type.startsWith('voice-')) {
       voice.receive(m);
     } else if (m.type === 'state') {
-      prepareVisuals(m.room); room = m.room; serverOffset = room.serverTime-Date.now(); render();
+      prepareVisuals(m.room); room = m.room; serverOffset = room.serverTime-Date.now();syncCharacterModels(); render();
     } else if (m.type === 'error') {
       joining = false;
       if (!room && session) { try { localStorage.removeItem('ludo-session-'+session.code); } catch {} session = null; }
-      toast(m.message); updateButtons();
+      toast(m.message);requestCharacterOptions(); updateButtons();
     } else if (m.type === 'emote') {
       const emote=CHARACTER_EMOTES.find(x=>x.wireText===m.text);
       if(emote)jungleView?.celebrate(m.seat,emote.kind);
@@ -136,7 +145,28 @@ function setMenu(next) {
   $('join-tab').classList.toggle('selected',next==='join');
   $('join-field').hidden = next !== 'join';
   $('begin').innerHTML = next === 'join' ? 'Pull up a seat <span>→</span>' : 'Make some room <span>→</span>';
+  characterOptions=null;renderCharacterPicker();requestCharacterOptions();
 }
+function requestCharacterOptions(){
+  clearTimeout(optionsTimer);
+  if(room||joining||session||!characterVersion||ws?.readyState!==WebSocket.OPEN)return;
+  const code=menu==='join'?$('room-input').value.trim().toUpperCase():'';
+  send({type:'room-options',code});
+}
+function renderCharacterPicker(){
+  const taken=new Map((characterOptions?.seats||[]).filter(Boolean).map(p=>[p.character,p.name]));
+  if(taken.has(selectedCharacter))selectedCharacter=CHARACTERS.find(c=>!taken.has(c.id))?.id||'';
+  $('character-options').innerHTML=CHARACTERS.map(c=>{
+    const owner=taken.get(c.id),chosen=c.id===selectedCharacter;
+    return '<button type="button" class="character-choice'+(chosen?' selected':'')+'" data-character="'+c.id+'" aria-pressed="'+chosen+'" '+(owner||joining||!characterVersion?'disabled':'')+'><svg viewBox="-.65 -1.22 1.3 1.6" aria-hidden="true">'+characterSvg(c.id)+'</svg><span>'+c.name+'</span><small>'+(owner?'Taken':chosen?'Selected':'Choose')+'</small></button>';
+  }).join('');
+  $('character-hint').textContent=!characterVersion?'Character choices are getting ready. You can still play with the current crew.':characterOptions?.missing?'Room not found. Check your code.':characterOptions?.started?'This race has started. Join a fresh room.':taken.size===4?'This room is full. Create a new room.':taken.size?'Taken characters belong to this room’s players.':'One character per player. Find your forest favourite.';
+}
+$('character-options').onclick=e=>{
+  const button=e.target.closest('[data-character]');if(!button||button.disabled)return;
+  selectedCharacter=button.dataset.character;renderCharacterPicker();
+};
+renderCharacterPicker();
 $('create-tab').onclick = () => setMenu('create');
 $('join-tab').onclick = () => setMenu('join');
 if (initialCode) { setMenu('join'); $('room-input').value = initialCode; }
@@ -144,7 +174,7 @@ function enter(solo = false) {
   if (joining) return;
   const name = $('name').value.trim() || 'Player';
   try { localStorage.setItem('ludo-name',name); } catch {}
-  const action = solo || menu === 'create' ? {type:'create',name,mode:solo?'solo':'friends'} : {type:'join',name,code:$('room-input').value.trim().toUpperCase()};
+  const action = solo || menu === 'create' ? {type:'create',name,mode:solo?'solo':'friends',character:selectedCharacter} : {type:'join',name,code:$('room-input').value.trim().toUpperCase(),character:selectedCharacter};
   if (action.type === 'join' && !/^[A-Z2-9]{6}$/.test(action.code)) { toast('Enter the six-character room code.'); $('room-input').focus(); return; }
   joining = true; updateButtons();
   if (ws?.readyState === WebSocket.OPEN) send(action); else pending = action;
@@ -153,10 +183,15 @@ $('begin').onclick = () => enter();
 $('solo').onclick = () => enter(true);
 $('room-input').addEventListener('keydown',e => { if (e.key === 'Enter') enter(); });
 $('name').addEventListener('keydown',e => { if (e.key === 'Enter') enter(); });
-$('room-input').addEventListener('input',() => { $('room-input').value = $('room-input').value.toUpperCase().replace(/[^A-Z0-9]/g,''); });
+$('room-input').addEventListener('input',() => {
+  $('room-input').value = $('room-input').value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  characterOptions=null;renderCharacterPicker();clearTimeout(optionsTimer);
+  optionsTimer=setTimeout(requestCharacterOptions,350);
+});
 function updateButtons() {
-  $('begin').disabled = joining;
+  $('begin').disabled = joining||!!(menu==='join'&&(characterOptions?.started||characterOptions?.missing||characterOptions?.seats?.filter(Boolean).length===4));
   $('solo').disabled = joining;
+  renderCharacterPicker();
   if (!room?.game) return;
   const g = room.game, giftReady=Date.now()+serverOffset >= (g.giftUntil||0), mine = giftReady && !visualBusy && g.turn === seat && g.phase === 'roll' && ws?.readyState === WebSocket.OPEN && Date.now() >= diceAnimatingUntil;
   $('roll').disabled = !mine; $('dice').disabled = !mine;
@@ -318,12 +353,7 @@ function position(s,t,progress) {
   return LANES[s][progress-51].map(x=>x+.5);
 }
 function animal(seatIndex,preview=false) {
-  const s=seatIndex===2?3:seatIndex===3?2:seatIndex;
-  const fur='url(#'+(preview?'preview-':'')+'fur-'+seatIndex+')', dark=s===1?'#292e2a':'#663819';
-  let ears=s===2?'<path d="M-.34 -.43L-.37 -.91-.08 -.68M.34 -.43L.37 -.91.08 -.68" fill="'+fur+'" stroke="#9d481f" stroke-width=".035"/><path d="M-.3 -.57L-.31 -.8-.19 -.64M.3 -.57L.31 -.8.19 -.64" fill="#f1d6ad"/>':'<circle cx="-.27" cy="-.68" r=".16" fill="'+(s===1?dark:fur)+'"/><circle cx=".27" cy="-.68" r=".16" fill="'+(s===1?dark:fur)+'"/><circle cx="-.27" cy="-.68" r=".09" fill="#d39b7d"/><circle cx=".27" cy="-.68" r=".09" fill="#d39b7d"/>';
-  if(s===2) ears+='<path d="M.18 .06Q.65 .18.57 -.3Q.43 -.22.36 -.26" fill="'+fur+'" stroke="#954216" stroke-width=".035"/><path d="M.49 -.04Q.59 -.14.57 -.3Q.43 -.22.36 -.26" fill="#fff5dc"/>';
-  if(s===3) ears+='<path d="M-.2 -.7L-.27 -1.05M-.27 -.91L-.43 -1M-.27 -.91L-.18 -1.03M.2 -.7L.27 -1.05M.27 -.91L.43 -1M.27 -.91L.18 -1.03" stroke="#845c34" stroke-width=".065" fill="none" stroke-linecap="round"/>';
-  return '<g class="animal-stride">'+ears+'<g class="animal-body"><rect x="-.29" y="-.24" width=".58" height=".47" rx=".15" fill="'+PALETTE[seatIndex]+'" stroke="#493f24" stroke-width=".035"/><rect x=".19" y="-.27" width=".17" height=".37" rx=".07" fill="#927344" stroke="#544329" stroke-width=".025"/><path d="M.23 -.25V.11M.26 -.11H.33" stroke="#f4d589" stroke-width=".035"/><ellipse class="animal-foot foot-left" cx="-.17" cy=".2" rx=".12" ry=".09" fill="'+dark+'"/><ellipse class="animal-foot foot-right" cx=".17" cy=".2" rx=".12" ry=".09" fill="'+dark+'"/><ellipse cx="-.27" cy="-.03" rx=".085" ry=".13" fill="'+fur+'"/><path d="M-.18 -.25L.15 .12" stroke="#eac980" stroke-width=".055"/><circle cx="-.07" cy="-.1" r=".04" fill="#f9df93"/></g><g class="animal-head"><ellipse cy="-.46" rx=".34" ry=".3" fill="'+fur+'" stroke="'+(s===1?'#8b9180':'#794726')+'" stroke-width=".025"/>'+(s===1?'<ellipse cx="-.16" cy="-.48" rx=".115" ry=".14" fill="'+dark+'" transform="rotate(20 -.16 -.48)"/><ellipse cx=".16" cy="-.48" rx=".115" ry=".14" fill="'+dark+'" transform="rotate(-20 .16 -.48)"/>':'')+(s===2?'<path d="M-.32 -.39Q-.18 -.43 0 -.25Q.18 -.43.32 -.39Q.24 -.14 0 -.18Q-.24 -.14-.32 -.39" fill="#fff5df"/>':'<ellipse cy="-.32" rx=".19" ry=".13" fill="'+(s===1?'#fffbed':'#efd1a0')+'"/>')+'<g class="animal-eyes"><ellipse cx="-.13" cy="-.48" rx=".046" ry=".063" fill="#222a20"/><ellipse cx=".13" cy="-.48" rx=".046" ry=".063" fill="#222a20"/><circle cx="-.14" cy="-.5" r=".015" fill="white"/><circle cx=".12" cy="-.5" r=".015" fill="white"/></g><ellipse cy="-.33" rx=".058" ry=".042" fill="#35291e"/><path d="M0 -.31V-.27Q-.07 -.22-.1 -.28M0 -.27Q.07 -.22.1 -.28" stroke="#614735" stroke-width=".025" fill="none" stroke-linecap="round"/><ellipse cx="-.23" cy="-.35" rx=".046" ry=".025" fill="#ef8d76" opacity=".55"/><ellipse cx=".23" cy="-.35" rx=".046" ry=".025" fill="#ef8d76" opacity=".55"/><path d="M-.18 -.63Q-.12 -.67-.07 -.64M.07 -.64Q.12 -.67.18 -.63" fill="none" stroke="#744c2d" stroke-width=".026" stroke-linecap="round"/></g></g>';
+  return characterSvg(preview?DEFAULT_CHARACTERS[seatIndex]:explorer(seatIndex).id,PALETTE[seatIndex]);
 }
 function makeToken(s,t,preview=false) {
   const el=document.createElementNS(NS,'g');
@@ -462,7 +492,7 @@ function paintTokens() {
     el.classList.toggle('active-explorer',active&&g?.turn===s&&['roll','move','waiting'].includes(g.phase));
     const movable=!!g&&Date.now()+serverOffset>=(g.giftUntil||0)&&g.turn===seat&&s===seat&&g.phase==='move'&&g.legal.includes(t)&&Date.now()>=diceAnimatingUntil&&ws?.readyState===WebSocket.OPEN&&!visualBusy;
     el.classList.toggle('movable',movable);el.setAttribute('role','button');el.setAttribute('tabindex',movable?'0':'-1');el.setAttribute('aria-disabled',String(!movable));
-    el.setAttribute('aria-label',LABELS[s]+' token '+(t+1)+(p<0?' in camp':p===FINISH?' finished':' at step '+p)+(movable?', can move':''));
+    el.setAttribute('aria-label',explorer(s).name+' token '+(t+1)+(p<0?' in camp':p===FINISH?' finished':' at step '+p)+(movable?', can move':''));
     el.dataset.visualStep=p;
     const outfit=g?.forestGifts?.outfits[s]?.[t],outfitName=Number.isInteger(outfit)?OUTFITS[outfit]:'';
     if(el.dataset.outfit!==outfitName){el.dataset.outfit=outfitName;el.querySelector('.forest-outfit').innerHTML=outfitSvg(outfit);}
@@ -510,7 +540,7 @@ function showDice(value) {
 function render() {
   $('welcome').hidden=true; $('room-screen').hidden=false;
   $('copy-code').innerHTML=escape(room.code)+' <small>▣</small>';
-  $('you-label').textContent='YOU ARE '+LABELS[seat]?.toUpperCase();
+  $('you-label').textContent='YOU ARE '+explorer(seat).name.toUpperCase();
   $('game-mode').textContent=room.mode==='solo'?'BOT EXPEDITION':'JUNGLE EXPEDITION';
   const g=room.game, host=room.owner===myId;
   $('room-title').textContent=g?'Your jungle adventure.':'Gather your explorers.';
@@ -528,7 +558,7 @@ function render() {
   $('mobile-help').textContent=g.phase==='move'?(mine?'Choose a glowing token':'Waiting for a move'):g.phase==='waiting'?'No legal move':mine?'Ready for your next roll':'Waiting for the roll';
   $('mobile-roll').textContent=mine?(g.phase==='move'?'Pick token ↑':'Roll ↗'):'Waiting…';
   $('mobile-dice').textContent=g.lastRoll?.value || 6;
-  $('turn-tag').textContent=g.phase==='done'?'A CHAMPION IS HERE':mine?'YOUR TURN':LABELS[g.turn].toUpperCase()+'’S TURN';
+  $('turn-tag').textContent=g.phase==='done'?'A CHAMPION IS HERE':mine?'YOUR TURN':explorer(g.turn).name.toUpperCase()+'’S TURN';
   $('turn-name').textContent=g.phase==='done'?'What a race!':mine?'Let’s roll, '+(current?.name||'friend')+'.':(current?.name||'Player')+' is up.';
   $('turn-help').textContent=g.phase==='done'?'A rematch is always a good idea.':g.phase==='move'?(mine?'Choose a glowing token on the board.':'Waiting for a token move.'):g.phase==='waiting'?'No legal move. Passing the dice…':mine?'Roll the dice. Make your next move.':'The dice belong to '+(current?.name||'Player')+'.';
   $('roll').innerHTML=g.phase==='done'?'Race complete <span>♡</span>':g.phase==='move'?(mine?'Pick a glowing token <span>↗</span>':'Waiting for a move…'):mine?'Roll the dice <span>↗</span>':'Waiting for the roll…';
@@ -598,5 +628,14 @@ function celebrate() {
 }
 paintTokens(); showDice(6);
 const movieComedy=createMovieComedy({board:$('board'),tokenNodes,reduced:reducedMotion,getRoom:()=>room});
-const jungleView=createJungleScene({board:$('board'),tokenNodes,comedy:movieComedy,getRoom:()=>room,getSeat:()=>seat,getServerTime:()=>Date.now()+serverOffset,colors:PALETTE,track:TRACK,lanes:LANES,yards:YARDS,safe:SAFE});
+function makeScene(){return createJungleScene({board:$('board'),tokenNodes,comedy:movieComedy,getRoom:()=>room,getSeat:()=>seat,getServerTime:()=>Date.now()+serverOffset,colors:PALETTE,track:TRACK,lanes:LANES,yards:YARDS,safe:SAFE});}
+let jungleView=makeScene(),characterSignature=DEFAULT_CHARACTERS.join(',');
+function syncCharacterModels(){
+  const signature=[0,1,2,3].map(s=>explorer(s).id).join(',');
+  if(signature===characterSignature)return;
+  characterSignature=signature;
+  for(let s=0;s<4;s++)for(let t=0;t<4;t++)tokenNodes.get(s+'-'+t).querySelector('.animal-idle').innerHTML=animal(s);
+  $('board').querySelectorAll('.yard-name').forEach((label,s)=>label.textContent=explorer(s).name.toUpperCase()+' CAMP');
+  jungleView?.dispose();jungleView=makeScene();
+}
 connect();
