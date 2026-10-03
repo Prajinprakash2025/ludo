@@ -1,5 +1,6 @@
 import * as T from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
+import {createCaptureEffects} from './capture3d.js';
 
 // A visual scene only: token routes and legal moves remain in the existing client.
 export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTime=()=>Date.now(),colors,track,lanes,yards,safe}) {
@@ -379,10 +380,12 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
       }
       ball(head,cream,0,-.14,.27,.21,.135,.085);
     }
+    const eyeParts=[];
     for(const dx of [-.13,.13]) {
       if(panda){const patch=ball(head,dark,dx,0,.258,.111,.145,.046);patch.rotation.z=dx<0?-.3:.3;}
-      ball(eyes,'#19251b',dx,.015,.305,.045,.064,.026,{roughness:.24});
-      ball(eyes,'#ffffff',dx-.012,.037,.331,.014,.018,.006,{emissive:'#ffffff',emissiveIntensity:.1});
+      const pupil=ball(eyes,'#19251b',dx,.015,.305,.045,.064,.026,{roughness:.24});
+      const glint=ball(eyes,'#ffffff',dx-.012,.037,.331,.014,.018,.006,{emissive:'#ffffff',emissiveIntensity:.1});
+      eyeParts.push({pupil,glint});
       cylinder(head,deer?'#7e552f':'#6c492a',[dx-.035,.122,.28],[dx+.03,.134,.282],.012);
     }
     ball(head,'#27251e',0,-.12,.365,.065,.045,.035,{roughness:.3});
@@ -416,7 +419,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
       }
       node.material=copies.get(original.uuid).material;
     });
-    scene.add(g);return {g,body,head,eyes,feet,arms,ring,halo,marker,seat,token,phase:seat*.9+token*1.6};
+    scene.add(g);return {g,body,head,eyes,eyeParts,feet,arms,ring,halo,marker,seat,token,phase:seat*.9+token*1.6};
   }
   for(let s=0;s<4;s++)for(let t=0;t<4;t++)animals.push(animal(s,t));
   // Keep scenery in static GPU buffers. Only articulated/animated parts need
@@ -463,6 +466,12 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
   let renderHost=preview;preview.append(renderer.domElement);
   let width=0,height=0,lastFrame=0,frames=0,frameMs=0,stopped=false;
   const diagnostics={renderer:'WebGL 3D',frames:0,tiles:tileMeshes.length,animals:16,waterfalls:2,torchCount:torches.length,drawCalls:0,fps:0,performanceVersion:2,characterDetail:'full'};
+  const captureEffects=createCaptureEffects({scene,camera,board,reduced,getRoom,diagnostics});
+  function capture(move){
+    const el=tokenNodes.get(move.seat+'-'+move.token),transform=getComputedStyle(el).transform;
+    const matrix=transform==='none'?new DOMMatrix():new DOMMatrix(transform);
+    captureEffects.start(move,{x:matrix.e-7.5,z:matrix.f-7.5});
+  }
   let observedRoll=null,rollHighlightUntil=0,rollHighlightSeat=-1,previousHighlightedSeat=-1;
   const characterEmotes=new Map();
   function celebrate(seat,kind='jump'){
@@ -535,6 +544,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
       if(!(node instanceof SVGElement))continue;
       const m=/translate\(([\d.-]+) ([\d.-]+)\)/.exec(node.getAttribute('transform')||'');
       if(!m)continue;
+      if(node.dataset.capture==='true')continue;
       for(let i=0;i<12;i++){
         const material=mat('#ffe266',{emissive:'#e8a923',emissiveIntensity:1,transparent:true,opacity:1}).clone();
         const p=mesh(scene,burstGeo,material,Number(m[1])-7.5,.65,Number(m[2])-7.5,1,1,1,false);
@@ -555,6 +565,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
     if(now-lastFrame<(innerWidth<650?32:21))return;
     const dt=now-lastFrame;lastFrame=now;frameMs+=dt;frames++;
     const time=reduced.matches?0:now/1000;
+    captureEffects.update(now);
     waterMaterial.uniforms.time.value=time;
     fireMaterial.uniforms.time.value=time;
     diagnostics.waterTime=time;diagnostics.fireTime=time;
@@ -633,6 +644,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
       a.head.rotation.z=Math.sin(time*.9+a.phase)*.026;
       a.head.rotation.x=-.4;
       a.eyes.scale.y=(time+a.phase)%4.8<.13?.12:1;
+      a.eyeParts.forEach(({pupil,glint})=>{pupil.scale.y=.064;glint.scale.y=.018;});
       a.feet[0].rotation.x=walking?Math.sin(phase)*.5:0;a.feet[1].rotation.x=walking?-Math.sin(phase)*.5:0;
       const active=a.seat===highlightedSeat,legal=el.classList.contains('movable');
       a.ring.visible=active||legal;
@@ -718,7 +730,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
           }
         }
       }
-      if(el.classList.contains('returning'))a.g.scale.multiplyScalar(.6);
+      if(!winning)captureEffects.pose(a,now);
       a.g.updateMatrixWorld();
       if(inverse&&room&&legal)projectedHit(a,el,matrix,rect,inverse);
     }
@@ -741,5 +753,5 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
   }
   resize();requestAnimationFrame(tick);
   renderer.domElement.addEventListener('webglcontextlost',()=>{board.dataset.renderer='lost';},{passive:true});
-  return {resize,pickToken,celebrate,renderer,scene,camera,diagnostics,dispose(){stopped=true;observer.disconnect();visibilityObserver.disconnect();effectObserver.disconnect();window.removeEventListener('scroll',onScroll);renderer.dispose();}};
+  return {resize,pickToken,celebrate,capture,resetCaptures:()=>captureEffects.reset(),renderer,scene,camera,diagnostics,dispose(){stopped=true;captureEffects.dispose();observer.disconnect();visibilityObserver.disconnect();effectObserver.disconnect();window.removeEventListener('scroll',onScroll);renderer.dispose();}};
 }

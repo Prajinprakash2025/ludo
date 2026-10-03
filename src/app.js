@@ -17,7 +17,7 @@ const CHARACTER_EMOTES=[
 const escape = value => String(value).replace(/[&<>"']/g,x => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 let ws, room = null, seat = -1, myId = '', session = null, pending = null;
 let joining = false, reconnectTimer, reconnectCount = 0, retry = true;
-let soundOn = false, audio, toastTimer, lastRollId = null, lastMoveId = null, lastWinner = null;
+let soundOn = false, audio, toastTimer, lastRollId = null, lastWinner = null;
 let diceAnimatingUntil = 0, serverOffset = 0, menu = 'create';
 const query = new URLSearchParams(location.search);
 const initialCode = (query.get('room') || '').toUpperCase();
@@ -35,7 +35,17 @@ function sound(kind) {
   try {
     audio ??= new (window.AudioContext || window.webkitAudioContext)();
     audio.resume();
-    const tones = kind === 'win' ? [523,659,784,1047] : kind === 'capture' ? [659,880] : [240,310,370];
+    if(kind==='capture'){
+      // A springy boing followed by a quiet pop; no downloaded audio assets.
+      [[.0,190,720,.24],[.24,950,150,.09]].forEach(([delay,from,to,length])=>{
+        const o=audio.createOscillator(),gain=audio.createGain(),at=audio.currentTime+delay;
+        o.type='sine';o.frequency.setValueAtTime(from,at);o.frequency.exponentialRampToValueAtTime(to,at+length);
+        gain.gain.setValueAtTime(.001,at);gain.gain.linearRampToValueAtTime(.045,at+.015);gain.gain.exponentialRampToValueAtTime(.001,at+length);
+        o.connect(gain);gain.connect(audio.destination);o.onended=()=>{o.disconnect();gain.disconnect();};o.start(at);o.stop(at+length+.02);
+      });
+      return;
+    }
+    const tones = kind === 'win' ? [523,659,784,1047] : [240,310,370];
     tones.forEach((freq,i) => {
       const o = audio.createOscillator(), gain = audio.createGain();
       o.type = 'sine'; o.frequency.value = freq;
@@ -94,11 +104,11 @@ function connect() {
       const emote=CHARACTER_EMOTES.find(x=>x.wireText===m.text);
       if(emote)jungleView?.celebrate(m.seat,emote.kind);
       toast((room?.seats[m.seat]?.name || 'Player')+': '+(emote?emote.icon+' '+emote.label+'!':m.text));
-      sound('capture');
+      sound('emote');
     } else if (m.type === 'left') {
       voice.leave();
       if (session) { try { localStorage.removeItem('ludo-session-'+session.code); } catch {} }
-      room = null; session = null; seat = -1; myId = ''; lastRollId = null; lastMoveId = null; lastWinner = null;
+      room = null; session = null; seat = -1; myId = ''; lastRollId = null; lastWinner = null;
       $('welcome').hidden = false; $('room-screen').hidden = true;
       $('mobile-dock').hidden=true; document.body.classList.remove('playing');
       history.replaceState({},'',location.pathname); setMenu('create'); updateButtons();
@@ -144,10 +154,10 @@ function updateButtons() {
   $('begin').disabled = joining;
   $('solo').disabled = joining;
   if (!room?.game) return;
-  const g = room.game, mine = g.turn === seat && g.phase === 'roll' && ws?.readyState === WebSocket.OPEN && Date.now() >= diceAnimatingUntil;
+  const g = room.game, mine = !visualBusy && g.turn === seat && g.phase === 'roll' && ws?.readyState === WebSocket.OPEN && Date.now() >= diceAnimatingUntil;
   $('roll').disabled = !mine; $('dice').disabled = !mine;
   document.querySelectorAll('[data-seat-dice]').forEach(b=>{b.disabled=!(mine&&Number(b.dataset.seatDice)===seat);});
-  const canChoose = g.turn===seat && g.phase==='move' && Date.now()>=diceAnimatingUntil && ws?.readyState===WebSocket.OPEN;
+  const canChoose = !visualBusy && g.turn===seat && g.phase==='move' && Date.now()>=diceAnimatingUntil && ws?.readyState===WebSocket.OPEN;
   $('mobile-roll').disabled = !(mine || canChoose);
   $('mobile-dice').disabled = !mine;
 }
@@ -328,7 +338,8 @@ const visualPositions=new Map(), reducedMotion=matchMedia('(prefers-reduced-moti
 let visualFresh=true,visualRoom='',visualRevision=-1,visualMoveId=null,visualEpoch=0,visualQueue=[],visualBusy=false;
 function resetVisuals(next) {
   visualEpoch++; visualQueue=[]; visualBusy=false;
-  for(const el of tokenNodes.values()) {el.getAnimations().forEach(a=>a.cancel());el.classList.remove('walking','returning','reacting');}
+  jungleView?.resetCaptures();
+  for(const el of tokenNodes.values()) {el.getAnimations().forEach(a=>a.cancel());el.classList.remove('walking','returning','reacting','capture-prank');}
   for(let s=0;s<4;s++) for(let t=0;t<4;t++) visualPositions.set(s+'-'+t,next.game?.tokens[s][t]??-1);
   $('winner-layer').classList.remove('waiting-flight');
 }
@@ -354,12 +365,13 @@ function landingEffect(s,t,p,kind='leaf') {
   if(reducedMotion.matches) return;
   const [r,c]=position(s,t,p),el=document.createElementNS(NS,'g');
   el.setAttribute('transform','translate('+c+' '+r+')'); el.classList.add('landing-effect');
+  el.dataset.capture=String(kind==='capture');
   el.innerHTML='<circle r=".42" fill="none" stroke="'+(kind==='capture'?'#fcb46a':'#ffdf78')+'" stroke-width=".055"/>'+Array.from({length:5},(_,i)=>'<text x="'+(Math.cos(i*1.256)*.5)+'" y="'+(Math.sin(i*1.256)*.5)+'" fill="#ffed9d" font-size=".18">'+(kind==='capture'?'✧':'✦')+'</text>').join('');
   $('board').querySelector('#effects').append(el);setTimeout(()=>el.remove(),650);
 }
 async function runVisualQueue() {
   if(visualBusy) return;
-  visualBusy=true; const epoch=visualEpoch;
+  visualBusy=true; const epoch=visualEpoch;updateButtons();paintTokens();
   while(visualQueue.length && epoch===visualEpoch) {
     const m=visualQueue.shift(),el=tokenNodes.get(m.seat+'-'+m.token);
     el.classList.add('walking');el.classList.remove('finished');
@@ -379,17 +391,29 @@ async function runVisualQueue() {
     el.classList.remove('walking');
     const safe=m.next<=50 && SAFE.has((m.seat*13+m.next)%52);
     if(safe || m.next===FINISH || m.captured.length) landingEffect(m.seat,m.token,m.next,m.captured.length?'capture':'leaf');
-    for(const captured of m.captured) {
-      const node=tokenNodes.get(captured.seat+'-'+captured.token);
-      node.classList.add('returning');
-      if(!reducedMotion.matches) await new Promise(resolve=>setTimeout(resolve,180));
-      if(epoch!==visualEpoch) return;
-      placeVisual(captured.seat,captured.token,-1);node.classList.remove('returning');
+    if(m.captured.length){
+      jungleView?.capture(m);sound('capture');el.classList.add('capture-prank');
+      if(!jungleView)toast(['പിടിച്ചേ! 🐾','വീട്ടിൽ പോടാ! 😂','വീണ്ടും വാ! 😜'][((m.id%3)+3)%3]);
+      $('live-announcement').textContent=(room.seats[m.seat]?.name||LABELS[m.seat])+' captured '+m.captured.length+' explorer'+(m.captured.length>1?'s':'')+'!';
+      const start=performance.now(),victims=m.captured.map(c=>({c,node:tokenNodes.get(c.seat+'-'+c.token)}));
+      victims.forEach(({node})=>node.classList.add('returning'));
+      if(!reducedMotion.matches)await new Promise(resolve=>setTimeout(resolve,220));
+      if(epoch!==visualEpoch)return;
+      const flights=victims.map(({c,node})=>{
+        const [r,col]=position(c.seat,c.token,-1);
+        return reducedMotion.matches?null:node.animate([{transform:node.style.transform},{transform:'translate('+col+'px,'+r+'px)'}],{duration:700,easing:'cubic-bezier(.2,.6,.35,1)',fill:'forwards'});
+      });
+      try{await Promise.all(flights.filter(Boolean).map(a=>a.finished));}catch{return;}
+      if(epoch!==visualEpoch)return;
+      victims.forEach(({c,node},i)=>{placeVisual(c.seat,c.token,-1);flights[i]?.cancel();node.classList.remove('returning');});
+      if(!reducedMotion.matches)await new Promise(resolve=>setTimeout(resolve,Math.max(0,1350-(performance.now()-start))));
+      if(epoch!==visualEpoch)return;
+      el.classList.remove('capture-prank');
     }
     paintTokens();
   }
   if(epoch!==visualEpoch) return;
-  visualBusy=false;$('winner-layer').classList.remove('waiting-flight');paintTokens();
+  visualBusy=false;$('winner-layer').classList.remove('waiting-flight');paintTokens();updateButtons();
 }
 function paintTokens() {
   const g=room?.game,locations=new Map();
@@ -410,7 +434,7 @@ function paintTokens() {
     el.dataset.visualStep=p;
   }
   for(const group of locations.values()) group.forEach(({el,r,c},i)=>{
-    if(el.classList.contains('walking')) return;
+    if(el.classList.contains('walking')||el.classList.contains('returning')) return;
     const spread=group.length>1?.17:0,ox=group.length>1?(i%2?spread:-spread):0,oy=group.length>2?(i<2?-spread:spread):0;
     el.style.transform='translate('+(c+ox)+'px,'+(r+oy)+'px)';
     el.classList.toggle('stacked',group.length>1);
@@ -423,7 +447,7 @@ $('board').addEventListener('click',e => {
   const token=e.detail && jungleView
     ? jungleView.pickToken(e.clientX,e.clientY)
     : e.target.closest('.token.movable');
-  if (token && room?.game) send({type:'move',token:Number(token.dataset.token),revision:room.game.revision});
+  if (!visualBusy && token && room?.game) send({type:'move',token:Number(token.dataset.token),revision:room.game.revision});
 });
 $('board').addEventListener('keydown',e => { if ((e.key==='Enter' || e.key===' ') && e.target.classList.contains('movable')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click',{bubbles:true})); } });
 function renderPlayers() {
@@ -482,11 +506,7 @@ function render() {
       setTimeout(()=> { $('dice').classList.remove('rolling'); updateButtons(); paintTokens(); },670);
     }
     lastRollId=g.lastRoll.id;
-  } else { lastRollId=null; lastMoveId=null; showDice(6); $('last-roll').textContent='Your lucky streak starts here.'; }
-  if (g.lastMove && lastMoveId!==g.lastMove.id) {
-    if (g.lastMove.captured.length && lastMoveId!==null) sound('capture');
-    lastMoveId=g.lastMove.id;
-  }
+  } else { lastRollId=null; showDice(6); $('last-roll').textContent='Your lucky streak starts here.'; }
   $('live-announcement').textContent=g.messages[0];
   const dancing=g.phase==='celebration';
   if(dancing){

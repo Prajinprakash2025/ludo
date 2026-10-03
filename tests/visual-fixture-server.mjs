@@ -14,7 +14,12 @@ const control=http.createServer((req,res)=>{
   // they snap to its positions rather than replaying fabricated token moves.
   g.revision=(r.game?.revision||0)-100;g.deadline=Date.now()+60000;
   if(kind==='five') {die=5;g.tokens[0][0]=4;}
-  else if(kind==='capture') {die=2;g.tokens[0][0]=13;g.tokens[1][0]=2;}
+  else if(kind==='capture'||kind==='capture-stack') {
+    const actor=Number(q.get('seat')||0),victim=(actor+1)%4;
+    if(!Number.isInteger(actor)||actor<0||actor>3){res.writeHead(400);res.end();return;}
+    die=2;g.turn=actor;g.tokens[actor][0]=13;
+    if(kind==='capture-stack')g.tokens[victim].fill(2);else g.tokens[victim][0]=2;
+  }
   else if(kind==='safe') {die=2;g.tokens[0][0]=11;g.tokens[1][0]=0;}
   else if(kind==='lane') {die=3;g.tokens[0][0]=50;}
   else if(kind==='remote') {die=2;g.turn=1;g.tokens[1][0]=0;}

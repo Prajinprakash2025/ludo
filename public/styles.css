@@ -206,3 +206,12 @@ body.scene-3d{background:#123d2e}
 @keyframes victory-disco{25%{transform:translateX(-.18px) rotate(10deg)}75%{transform:translateX(.18px) rotate(-10deg)}}
 @media(max-width:650px){.scene-3d .winner-layer.dance-banner{left:13%;right:13%;padding:8px}.winner-layer.dance-banner h2{font-size:17px}.winner-layer.dance-banner p{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.token.victory-dance .animal-idle{animation:none!important}}
+/* Capture feedback stays beside the board, with no blocking overlay. */
+.capture-callout{position:absolute;z-index:6;transform:translate(-50%,-100%);padding:7px 13px;border:2px solid #dfb25b;border-radius:16px 16px 16px 3px;background:#4e3423f5;color:#fff1b5;font-size:17px;font-weight:800;white-space:nowrap;pointer-events:none;box-shadow:0 3px 0 #261e13;animation:capture-caption .22s ease-out}
+.capture-callout[hidden]{display:none}
+.webgl-fallback .token.returning .animal-idle{animation:capture-spin .92s ease-out forwards}
+.webgl-fallback .token.capture-prank .animal-stride{animation:animal-cheer .35s ease-in-out 4}
+@keyframes capture-caption{from{opacity:0;scale:.8}to{opacity:1;scale:1}}
+@keyframes capture-spin{0%{transform:scale(1.15) rotate(-10deg)}25%{transform:scale(.9) rotate(12deg)}75%{transform:translateY(-.8px) rotate(360deg)}100%{transform:scale(1) rotate(720deg)}}
+@media(max-width:650px){.capture-callout{font-size:14px;padding:6px 10px}}
+@media(prefers-reduced-motion:reduce){.capture-callout,.webgl-fallback .token.returning .animal-idle,.webgl-fallback .token.capture-prank .animal-stride{animation:none!important}}
