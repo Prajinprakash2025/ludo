@@ -13,7 +13,14 @@
   <meta property="og:title" content="Pakidakali — Free Online Ludo with Friends">
   <meta property="og:description" content="Bring your friends to an animated jungle Ludo adventure. Play with 2–4 players, room codes, bots, and optional voice chat. No downloads needed.">
   <meta property="og:url" content="https://pakidakali.cloud/">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="https://pakidakali.cloud/images/pakidakali-forest-cover.jpg">
+  <meta property="og:image:width" content="1536">
+  <meta property="og:image:height" content="1024">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:alt" content="Pakidakali forest Ludo adventure with bear, panda, deer, fox and their explorer friends.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://pakidakali.cloud/images/pakidakali-forest-cover.jpg">
+  <meta name="twitter:image:alt" content="Friendly forest explorers celebrate around the Pakidakali Ludo board.">
   <meta name="twitter:title" content="Pakidakali — Free Online Ludo with Friends">
   <meta name="twitter:description" content="Free browser Ludo for 2–4 players, with room codes, bots, an animated jungle board, and optional voice chat.">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -27,19 +34,41 @@
         "name": "Pakidakali",
         "alternateName": ["Pakida Kali", "പകിടകളി"],
         "url": "https://pakidakali.cloud/",
-        "inLanguage": "en"
+        "inLanguage": "en",
+        "image": {"@id": "https://pakidakali.cloud/#cover"}
+      },
+      {
+        "@type": "WebPage",
+        "@id": "https://pakidakali.cloud/#page",
+        "url": "https://pakidakali.cloud/",
+        "name": "Pakidakali — Free Online Ludo with Friends",
+        "isPartOf": {"@id": "https://pakidakali.cloud/#website"},
+        "mainEntity": {"@id": "https://pakidakali.cloud/#game"},
+        "primaryImageOfPage": {"@id": "https://pakidakali.cloud/#cover"}
       },
       {
         "@type": "WebApplication",
         "@id": "https://pakidakali.cloud/#game",
         "name": "Pakidakali",
         "url": "https://pakidakali.cloud/",
+        "image": {"@id": "https://pakidakali.cloud/#cover"},
+        "screenshot": "https://pakidakali.cloud/images/pakidakali-gameplay.jpg",
         "description": "A free online Ludo game for 2–4 players with room codes, bots, an animated jungle board, and optional room voice chat.",
         "applicationCategory": "GameApplication",
         "operatingSystem": "Any device with a supported web browser",
         "isAccessibleForFree": true,
         "isPartOf": {"@id": "https://pakidakali.cloud/#website"},
         "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"}
+      },
+      {
+        "@type": "ImageObject",
+        "@id": "https://pakidakali.cloud/#cover",
+        "contentUrl": "https://pakidakali.cloud/images/pakidakali-forest-cover.jpg",
+        "url": "https://pakidakali.cloud/images/pakidakali-forest-cover.jpg",
+        "name": "Pakidakali forest Ludo adventure",
+        "caption": "Meet your forest crew and play free online Ludo with friends.",
+        "width": 1536,
+        "height": 1024
       }
     ]
   }
@@ -64,7 +93,7 @@
           <p class="setup-note">Free to play. Fair dice. Just bring your lucky streak.</p>
         </div>
       </div>
-      <div class="welcome-art"><div class="sticker sticker-one">INTO THE WILD <span>✦</span></div><div id="preview-board" class="preview-board"></div><div class="sticker sticker-two"><span>♡</span> YOUR CREW. YOUR ADVENTURE.</div><div class="floating-die die-one"><span>⚄</span></div><div class="floating-die die-two"><span>⚂</span></div><div class="orbit-dot orbit-one"></div><div class="orbit-dot orbit-two"></div><p class="art-caption">A wild little adventure. A classic game of Ludo.</p></div>
+      <div class="welcome-art"><div class="sticker sticker-one">INTO THE WILD <span>✦</span></div><div id="preview-board" class="preview-board"></div><div class="sticker sticker-two"><span>♡</span> YOUR CREW. YOUR ADVENTURE.</div><div class="floating-die die-one"><span>⚄</span></div><div class="floating-die die-two"><span>⚂</span></div><div class="orbit-dot orbit-one"></div><div class="orbit-dot orbit-two"></div><p class="art-caption">A wild little adventure. A classic game of Ludo.</p></div><figure class="forest-cover"><img src="/images/pakidakali-forest-cover.jpg" width="1536" height="1024" alt="Bear, panda, deer, fox, rabbit, tiger, monkey and raccoon gather around a colourful forest Ludo board in Pakidakali." loading="lazy" decoding="async"><figcaption>Your forest crew is ready. Bring your friends!</figcaption></figure>
     </section>
     <section id="room-screen" hidden>
       <div class="room-heading"><div><div class="eyebrow">EXPEDITION BASECAMP</div><h1 id="room-title">Let the good rolls begin.</h1></div><div class="room-invite"><span>ROOM CODE</span><button id="copy-code" title="Copy room code">------ <small>▣</small></button><button id="copy-link" class="outline-button">Copy invite ↗</button><button id="leave" class="text-button leave-button">Leave</button></div></div>

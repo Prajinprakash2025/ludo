@@ -33,7 +33,7 @@ test('no-move reaction belongs to the player who rolled and ignores a forfeited 
   const h=createGame(names);h.sixes=2;roll(h,6,names);assert.equal(noMoveComedy(h),null);
 });
 
-test('no-move dialogue needs three misses by the same player and appears only once per game',()=>{
+test('no-move dialogue needs three fresh misses per player, with a seventy-five second cooldown',()=>{
   const p=createComedyPacing(),event={kind:'noMove',seat:0};
   const observe=(id,seat,phase='waiting')=>p.observeRoll({lastRoll:{id,seat},phase});
   observe(1,0);assert.equal(p.allow(event,0),false);
@@ -41,23 +41,25 @@ test('no-move dialogue needs three misses by the same player and appears only on
   observe(3,0);assert.equal(p.allow(event,60000),false);
   observe(4,0,'move');observe(5,0);assert.equal(p.allow(event,90000),false);
   observe(6,0);observe(7,0);assert.equal(p.allow(event,120000),true);
-  observe(8,1);observe(9,1);
-  assert.equal(p.allow({kind:'noMove',seat:1},300000),false,'Other players must not repeat the same line');
-  assert.equal(p.allow(event,600000),false);
+  observe(8,1);observe(9,1);observe(10,1);
+  assert.equal(p.allow({kind:'noMove',seat:1},130000),true,'A different player can react to their own failed rolls');
+  assert.equal(p.allow(event,600000),false,'A caption clears its player\'s miss streak');
+  observe(11,1);observe(12,1);observe(13,1);assert.equal(p.allow({kind:'noMove',seat:1},200000),false);
+  assert.equal(p.allow({kind:'noMove',seat:1},205000),true);
   p.reset();observe(1,0);observe(2,0);observe(3,0);assert.equal(p.allow(event,600000),true);
 });
 
-test('ambient events are spaced across the table while captures can interrupt after eight seconds',()=>{
+test('ambient events are spaced across the table while captures can interrupt after six seconds',()=>{
   const p=createComedyPacing();
   assert.equal(p.allow({kind:'chase'},0),true);
-  assert.equal(p.allow({kind:'nearMiss'},19000),false);
-  assert.equal(p.allow({kind:'nearMiss'},20000),true);
-  assert.equal(p.allow({kind:'chase'},39000),false);
-  assert.equal(p.allow({kind:'chase'},40000),true);
-  assert.equal(p.allow({kind:'capture'},45000),false);
-  assert.equal(p.allow({kind:'capture'},48000),true);
-  assert.equal(p.allow({kind:'capture'},59000),false);
-  assert.equal(p.allow({kind:'capture'},60000,true),true);
+  assert.equal(p.allow({kind:'nearMiss'},7000),false);
+  assert.equal(p.allow({kind:'nearMiss'},8000),true);
+  assert.equal(p.allow({kind:'chase'},15000),false);
+  assert.equal(p.allow({kind:'chase'},16000),true);
+  assert.equal(p.allow({kind:'capture'},21000),false);
+  assert.equal(p.allow({kind:'capture'},22000),true);
+  assert.equal(p.allow({kind:'capture'},31000),false);
+  assert.equal(p.allow({kind:'capture'},32000,true),true);
   assert.equal(p.allow({kind:'nearMiss'},90000,true),false);
 });
 
@@ -73,10 +75,34 @@ test('each situation cycles every alternative before reuse and shared lines keep
   for(let i=0;i<24;i++){
     const now=i*10000,kind=['nearMiss','boast','noMove','victory'][i%4],line=deck.pick(kind,now);
     if(!line)continue;
-    assert.ok(!history.slice(-2).some(e=>e.line===line),'Adjacent situations repeated a line');
-    assert.ok(!history.some(e=>e.line===line&&now-e.now<90000),'A shared line bypassed its cooldown');
+    assert.ok(!history.slice(-4).some(e=>e.line===line),'Adjacent situations repeated a line');
+    assert.ok(!history.some(e=>e.line===line&&now-e.now<60000),'A shared line bypassed its cooldown');
     history.push({line,now});
   }
+});
+
+test('three/four-square approaches, genuine escapes and overtakes select the right speaker in every seat',()=>{
+  for(let seat=0;seat<4;seat++){
+    const other=(seat+1)%4;
+    for(const p of [5,6]){const {g,m}=play(seat,13,2,other,p);assert.deepEqual(moveComedy(g,m),{kind:'chase',seat:other,token:1});}
+    const escape=play(seat,16,4,other,1);
+    assert.deepEqual(moveComedy(escape.g,escape.m),{kind:'escape',seat,token:0});
+    const pass=play(seat,13,5,other,1);
+    assert.deepEqual(moveComedy(pass.g,pass.m),{kind:'overtake',seat,token:0});
+  }
+});
+
+test('being nearby on another route, pulling away without danger and landing on safety stay quiet',()=>{
+  for(const args of [[0,20,2,1,5],[0,16,1,1,1],[0,16,5,1,1],[0,49,1,1,38]]){
+    const {g,m}=play(...args);assert.equal(moveComedy(g,m),null);
+  }
+});
+
+test('checking an unavailable caption does not consume its pacing slot',()=>{
+  const pacing=createComedyPacing(),event={kind:'chase'};
+  assert.equal(pacing.allow(event,0,false,false),true);
+  assert.equal(pacing.allow(event,1),true);
+  assert.equal(pacing.allow(event,1000),false);
 });
 
 test('room seeds produce consistent choices for two clients and different opening dialogue across rooms',()=>{

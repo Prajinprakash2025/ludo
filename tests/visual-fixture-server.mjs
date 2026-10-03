@@ -20,6 +20,9 @@ const control=http.createServer((req,res)=>{
   }
   else if(kind==='gift-capture'){die=2;g.turn=1;g.tokens[1][0]=0;g.tokens[0][0]=15;g.forestGifts.outfits[0][0]=0;g.forestGifts.tiles=[6,32];}
   else if(['chase','near-miss','pass-miss'].includes(kind)) {die=2;g.tokens[0][0]=13;g.tokens[1][0]=kind==='chase'?4:kind==='near-miss'?3:1;g.forestGifts.tiles=[];}
+  else if(kind==='chase-far'){die=2;g.tokens[0][0]=13;g.tokens[1][0]=6;g.forestGifts.tiles=[];}
+  else if(kind==='escape'){die=4;g.tokens[0][0]=16;g.tokens[1][0]=1;g.forestGifts.tiles=[];}
+  else if(kind==='overtake'){die=5;g.tokens[0][0]=13;g.tokens[1][0]=1;g.forestGifts.tiles=[];}
   else if(kind==='safe-near'){die=2;g.tokens[0][0]=5;g.tokens[1][0]=47;g.forestGifts.tiles=[];}
   else if(kind==='no-move'){die=3;}
   else if(kind==='five') {die=5;g.tokens[0][0]=4;}

@@ -17,13 +17,13 @@ async (page) => {
     };
     const roll=async()=>{await phone.waitForFunction(()=>!document.querySelector('#roll').disabled);await phone.locator('#roll').click();};
     const play=async(token=0)=>{await roll();await phone.locator('#board .token.movable[data-seat="0"][data-token="'+token+'"]').waitFor();await phone.locator('#board .token.movable[data-seat="0"][data-token="'+token+'"]').press('Enter');};
-    for(const kind of ['chase','near-miss','pass-miss']){
-      stage=kind;await seed(kind,13);await play();
-      const expected=kind==='chase'?'chase':'nearMiss';
+    for(const kind of ['chase','chase-far','near-miss','pass-miss','escape','overtake']){
+      stage=kind;await seed(kind,kind==='escape'?16:13);await play();
+      const expected=kind.startsWith('chase')?'chase':['escape','overtake'].includes(kind)?kind:'nearMiss';
       await Promise.all(pages.map(p=>p.waitForFunction(k=>window.jungleScene?.comedy?.kind===k&&!!window.jungleScene.comedy.pose,expected)));
       if(kind==='chase')await phone.waitForFunction(()=>window.jungleScene.comedy?.pose?.headYaw>.2);
       const state=await phone.evaluate(()=>window.jungleScene.comedy);
-      assert(state.seat===1&&state.token===0,'Reaction on wrong character');
+      assert(state.seat===(['escape','overtake'].includes(kind)?0:1)&&state.token===0,'Reaction on wrong character');
       await remote.waitForFunction(()=>!document.querySelector('#roll').disabled&&!!window.jungleScene.comedy);
       assert(await phone.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile overflow');
       if(kind==='chase'){await phone.locator('#board').screenshot({path:'output/playwright/movie-chase-mobile.png'});assert(Math.abs(state.pose.headYaw)>.1,'Missing look-back pose');}
@@ -70,7 +70,7 @@ async (page) => {
     await fallback.locator('#board .token.movable[data-seat="0"][data-token="0"]').press('Enter');await fallback.locator('.movie-callout').waitFor({state:'visible'});
     assert((await fallback.locator('.movie-callout').textContent()).trim().length>0,'Fallback dialogue missing');
     assert(errors.length===0,errors.join('\n'));
-    return {results,captureAndBoast:true,noMoveAfterThreeMisses:true,noMoveOncePerTable:true,reconnect:true,safeStars:true,reducedMotion:true,victory:true,fallback:true,pageErrors:errors};
+    return {results,captureAndBoast:true,noMoveAfterThreeMisses:true,noMoveCooldown:true,reconnect:true,safeStars:true,reducedMotion:true,victory:true,fallback:true,pageErrors:errors};
   }catch(e){console.log('FAILED STAGE: '+stage);throw e;}
   finally{for(const ctx of contexts)await ctx.close();}
 }

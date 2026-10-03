@@ -12,7 +12,7 @@ import {availableCharacter} from './characters.mjs';
 const root = fileURLToPath(new URL('./public/',import.meta.url));
 const TURN_MS = 45000;
 const EMOTES = ['Nice move! ✨','Oops! 🙈','Let’s go! 🚀','Good game! 🤝'];
-const MIME = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.svg':'image/svg+xml'};
+const MIME = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.svg':'image/svg+xml','.jpg':'image/jpeg'};
 export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, botDelay = 1000,
   allowedOrigins = process.env.ALLOWED_ORIGINS || '', publicUrl = process.env.PUBLIC_URL || '', voiceConfig, giftPick = limit => randomInt(limit)} = {}) {
   const origins = new Set(allowedOrigins.split(',').map(x => x.trim()).filter(Boolean).map(value => {
@@ -25,7 +25,8 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
   const rooms = new Map();
   const server = http.createServer(async (req,res) => {
     const path = new URL(req.url,'http://localhost').pathname;
-    const files = {'/':'index.html','/app.js':'app.js','/styles.css':'styles.css','/game.mjs':'../game.mjs','/forest-gifts.mjs':'../forest-gifts.mjs','/robots.txt':'robots.txt','/sitemap.xml':'sitemap.xml','/favicon.svg':'favicon.svg'};
+    const files = {'/':'index.html','/app.js':'app.js','/styles.css':'styles.css','/game.mjs':'../game.mjs','/forest-gifts.mjs':'../forest-gifts.mjs','/robots.txt':'robots.txt','/sitemap.xml':'sitemap.xml','/favicon.svg':'favicon.svg',
+      '/images/pakidakali-forest-cover.jpg':'images/pakidakali-forest-cover.jpg','/images/pakidakali-gameplay.jpg':'images/pakidakali-gameplay.jpg'};
     const file = files[path];
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','same-origin');

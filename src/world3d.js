@@ -11,7 +11,7 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
   let renderer;
   try {renderer=new T.WebGLRenderer({antialias:!mobile,alpha:false,powerPreference:'high-performance'});}
   catch {document.body.classList.remove('scene-3d');document.body.classList.add('webgl-fallback');board.dataset.renderer='fallback';return null;}
-  renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.5:1.65));
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.65));
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.02;
   renderer.shadowMap.enabled=!mobile;renderer.shadowMap.type=T.PCFShadowMap;
@@ -514,7 +514,7 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
     const rect=renderHost.getBoundingClientRect();
     if(!rect.width||!rect.height)return;
     const smooth=phoneLayout();
-    renderer.setPixelRatio(Math.min(devicePixelRatio,smooth?1.5:1.65));
+    renderer.setPixelRatio(Math.min(devicePixelRatio,1.65));
     renderer.shadowMap.enabled=!smooth;
     torches.forEach(t=>t.light.visible=!smooth);
     diagnostics.quality=smooth?'mobile-smooth':'full';

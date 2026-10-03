@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://pakidakali.cloud/</loc>
+    <image:image><image:loc>https://pakidakali.cloud/images/pakidakali-forest-cover.jpg</image:loc></image:image>
+    <image:image><image:loc>https://pakidakali.cloud/images/pakidakali-gameplay.jpg</image:loc></image:image>
   </url>
 </urlset>
