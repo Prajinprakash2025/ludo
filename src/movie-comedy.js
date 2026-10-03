@@ -1,83 +1,28 @@
 import {square,SAFE,FINISH} from '../game.mjs';
 
-export const MOVIE_LINES={
-  chase:'എന്റെ ശിവനേ!',
-  nearMiss:'എന്തോ… എങ്ങനെ!',
-  capture:'രണ്ട് ഓലക്കീറോ വെള്ളത്തുണിയോ എടുത്തോളൂ എന്നെ മൂടാൻ',
-  boast:'ഇനി നമ്മൾ എന്തും ചെയ്യും മല്ലയ്യാ!',
-  noMove:'എന്തിനോ വേണ്ടി തിളക്കുന്ന സാമ്പാർ!',
-  victory:'മൊതലാളി ജങ്ക ജഗ ജഗാ!'
-};
-
-// Short excerpts; credits and sources are recorded in VERIFICATION.md.
-export const MOVIE_POOLS={
-  // Existing film excerpts are mixed with original, situation-specific game banter.
-  chase:['ആരും പേടിക്കണ്ട… ഓടിക്കോ!','ടാസ്കി വിളിയെടാ!',MOVIE_LINES.chase,
-    'പിന്നിൽ കാൽപ്പെരുമാറ്റം… എന്നെയാണോ നോക്കുന്നത്?',
-    'ഇത്ര അടുത്ത് വരണ്ട! സൗഹൃദത്തിന് ഒരു അകലം വേണം!',
-    'എന്റെ പിന്നാലെ തന്നെ! വേറെ വഴി ഇല്ലേ?',
-    'അയ്യോ, അടുത്തെത്തി! പകിടേ, എന്നെ കൈവിടല്ലേ!',
-    'ഞാൻ മുന്നിൽ പോയത് ഇതിനായിരുന്നോ!',
-    'തിരിഞ്ഞു നോക്കിയപ്പോൾ… ദാ, തൊട്ടുപിന്നിൽ!',
-    'ഒന്ന് വേഗം നടക്കട്ടെ… പിന്നിൽ ഒരാൾക്ക് തിരക്കുണ്ട്!'],
-  nearMiss:['പോ മോനേ ദിനേശാ!',MOVIE_LINES.nearMiss,
-    'അയ്യോ… പിടിച്ചെന്ന് കരുതി! ഭാഗ്യം, കിട്ടിയില്ല!',
-    'ഒരു നിമിഷം ശ്വാസം നിന്നു! ഇപ്പോൾ ശരിയായി!',
-    'ഇത്ര അടുത്തെത്തിയിട്ടും പിടിക്കാൻ പറ്റിയില്ലല്ലോ!',
-    'എന്റെ വീട്ടിലേക്ക് മടക്കാൻ ഇന്നെന്തായാലും പറ്റിയില്ല!',
-    'ഹോ! ഈ പകിട എന്നെ രക്ഷിച്ചു!',
-    'പിടിക്കാനുള്ള ആ പ്ലാൻ ചെറുതായി പാളി, അല്ലേ?'],
-  escape:['ഹോ! കുറച്ചെങ്കിലും അകലം കിട്ടി!',
-    'പിന്നിലുണ്ടായിരുന്നു… ഞാൻ ഇത്തിരി വേഗം കൂട്ടി!',
-    'എന്നെ പിടിക്കാൻ വന്നതാ? ഞാൻ ഇങ്ങെത്തി!',
-    'നേരത്തെ അടുത്തായിരുന്നു… ഇപ്പോൾ ശ്വാസം വിടാം!',
-    'എന്റെ പിന്നാലെ വരാം… ഒപ്പം എത്താൻ കുറച്ച് പണിപ്പെടും!',
-    'ഓടിയതല്ല… സുരക്ഷിതമായ അകലം പാലിച്ചതാണ്!',
-    'വീട്ടിലേക്ക് മടങ്ങാൻ പറഞ്ഞതാ… ഞാൻ മുന്നോട്ട് പോയി!'],
-  overtake:['ഇത്തിരി വഴിയേ… ഞാൻ മുന്നോട്ട് പോകട്ടെ!',
-    'കുറച്ച് മുമ്പ് മുന്നിലായിരുന്നല്ലോ! ഇപ്പോൾ എന്തുപറ്റി?',
-    'മുന്നിൽ നിന്ന ആള് പിന്നിലായി! പകിടയുടെ ഓരോ കളികൾ!',
-    'ഒന്ന് മാറിനിന്നതാണോ? നന്ദിയുണ്ട് കേട്ടോ!',
-    'ഞാൻ കടന്നുപോയി… ഇനി പിന്നാലെ കാണാം!',
-    'ഒരു ചെറിയ നടത്തം… ഒരു വലിയ സ്ഥാനമാറ്റം!',
-    'നിന്നെ പിടിച്ചില്ല! പക്ഷേ കടന്നുപോയി!'],
-  capture:['ലേലു അല്ലു… ലേലു അല്ലു!','അങ്ങനെ പടക്ക കമ്പനി ഖുദാ ഹവാ!',MOVIE_LINES.capture,
-    'വീടെത്തി! പക്ഷേ ഞാൻ ഉദ്ദേശിച്ച വീട് ഇതല്ല!',
-    'ഇത്ര ദൂരം നടന്നിട്ട്… വീണ്ടും തുടക്കം മുതൽ!',
-    'ഒരു ചായ കുടിക്കാൻ വീട്ടിലേക്ക് അയച്ചതാണല്ലേ?',
-    'എന്റെ യാത്രയ്ക്ക് ഇങ്ങനെയൊരു ഇടവേള വേണ്ടായിരുന്നു!',
-    'കുറച്ച് മുമ്പ് മുന്നിലായിരുന്നു… ഇപ്പോൾ മുറ്റത്തായി!'],
-  boast:['സവാരിഗിരിഗിരി!','ഒടുക്കത്തെ ബുദ്ധിയാ!',MOVIE_LINES.boast,
-    'വീട്ടിൽ എത്തിയില്ലേ? ഇനി പതുക്കെ വന്നാൽ മതി!',
-    'വഴിയിൽ കണ്ടപ്പോൾ വീട്ടിലേക്ക് ഒന്ന് വിട്ടു!',
-    'എന്റെ വഴിയിൽ നിന്നതാ… പിന്നെ എന്തുചെയ്യും!',
-    'ഒരു പകിട! ഒരു മടക്കയാത്ര!'],
-  noMove:['ഇപ്പോ ശരിയാക്കി തരാം…',MOVIE_LINES.noMove,
-    'എല്ലാവരും നടന്നു… ഞാൻ പകിടയെ നോക്കി ഇരുന്നു!',
-    'പകിടയ്ക്ക് ഇന്ന് എന്നോട് എന്തോ പിണക്കമുണ്ട്!',
-    'നടക്കാൻ തയ്യാറാണ്… അനുമതി കിട്ടുന്നില്ല!',
-    'ഇവിടെ ഇരുന്നാൽ വിജയിക്കുമോ? ഒന്ന് ചോദിച്ചതാ!',
-    'ഈ പകിടയ്ക്ക് എന്റെ പ്ലാൻ മനസ്സിലായില്ല!'],
-  victory:[MOVIE_LINES.victory,'സവാരിഗിരിഗിരി!',
-    'കാടിന്റെ ചാമ്പ്യൻ എത്തിയല്ലോ!',
-    'പകിടയും കൂട്ടുകാരും… ഇതാണ് ഇന്നത്തെ ആഘോഷം!',
-    'നടന്ന് തുടങ്ങിയതാ… നൃത്തം ചെയ്ത് അവസാനിപ്പിച്ചു!']
-};
+import {MOVIE_QUOTES,MOVIE_EXCHANGES,MOVIE_POOLS} from './movie-quotes.js';
+export {MOVIE_QUOTES,MOVIE_EXCHANGES,MOVIE_POOLS};
 
 export function createDialogueDeck(seed=''){
   const offset=[...seed].reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,0),used=new Map(),recent=[];
   let order=0;
+  const available=(line,now)=>now-(used.get(line)?.time??-Infinity)>=60000;
+  const rank=line=>used.get(line)?.order??-1;
+  const remember=(lines,now)=>{for(const line of lines){used.set(line,{time:now,order:order++});recent.push({line,now});}while(recent.length>4)recent.shift();};
+  const fresh=(line,now)=>available(line,now)&&!recent.some(e=>e.line===line&&now-e.now<60000);
+  const rotate=pool=>pool.map((_,i)=>pool[(i+offset)%pool.length]);
   return {
     pick(kind,now){
-      const pool=MOVIE_POOLS[kind]||[];
-      const candidates=pool.map((_,i)=>pool[(i+offset)%pool.length])
-        .filter(line=>!recent.includes(line)&&now-(used.get(line)?.time??-Infinity)>=60000)
-        .sort((a,b)=>(used.get(a)?.order??-1)-(used.get(b)?.order??-1));
-      const line=candidates[0];
-      if(!line)return null;
-      used.set(line,{time:now,order:order++});recent.push(line);
-      if(recent.length>4)recent.shift();
-      return line;
+      const line=rotate(MOVIE_POOLS[kind]||[]).filter(line=>fresh(line,now)).sort((a,b)=>rank(a)-rank(b))[0];
+      if(!line)return null;remember([line],now);return line;
+    },
+    pickExchange(kind,now){
+      const pair=rotate(MOVIE_EXCHANGES[kind]||[]).map(ids=>ids.map(id=>MOVIE_QUOTES[id].text))
+        .filter(lines=>lines.every(line=>fresh(line,now)))
+        .sort((a,b)=>Math.max(...a.map(rank))-Math.max(...b.map(rank)))[0];
+      if(!pair)return null;
+      // Reserve both lines together: the reply cannot change or repeat a recent line.
+      remember(pair,now);return {opening:pair[0],reply:pair[1]};
     }
   };
 }
@@ -101,11 +46,11 @@ export function moveComedy(g,m) {
       // alone is not a chase (home lanes and the parallel arms are excluded).
       if(passed){
         const overshoot=steps-fromOrigin;
-        candidates.push(overshoot<=2?{kind:'nearMiss',seat,token,gap:overshoot}:{kind:'overtake',seat:m.seat,token:m.token,gap:overshoot});
+        candidates.push(overshoot<=2?{kind:'nearMiss',seat,token,partner:{seat:m.seat,token:m.token},gap:overshoot}:{kind:'overtake',seat:m.seat,token:m.token,partner:{seat,token},gap:overshoot});
       }else if(ahead>=1&&ahead<=4&&fromOrigin>ahead&&m.next+ahead<=50){
-        candidates.push({kind:ahead===1?'nearMiss':'chase',seat,token,gap:ahead});
+        candidates.push({kind:ahead===1?'nearMiss':'chase',seat,token,partner:{seat:m.seat,token:m.token},gap:ahead});
       }else if(!SAFE.has(origin)&&leadBefore>=1&&leadBefore<=4&&steps>=2&&leadAfter>=5&&leadAfter<=10){
-        candidates.push({kind:'escape',seat:m.seat,token:m.token,gap:leadBefore});
+        candidates.push({kind:'escape',seat:m.seat,token:m.token,partner:{seat,token},gap:leadBefore});
       }
     });
   }
@@ -151,7 +96,8 @@ export function createMovieComedy({board,tokenNodes,reduced,getRoom}){
   bubble.lang='ml';bubble.setAttribute('aria-hidden','true');board.append(bubble);
   const pacing=createComedyPacing();
   let current=null,actorNode=null,deck=null,victoryKey=null,victoryText=null;
-  function dialogue(kind,now){deck??=createDialogueDeck(getRoom()?.code);return deck.pick(kind,now);}
+  function getDeck(){return deck??=createDialogueDeck(getRoom()?.code);}
+  function dialogue(kind,now){return getDeck().pick(kind,now);}
   function clear(){
     actorNode?.classList.remove('movie-react');actorNode=null;current=null;bubble.hidden=true;
   }
@@ -166,10 +112,12 @@ export function createMovieComedy({board,tokenNodes,reduced,getRoom}){
     const room=getRoom(),now=performance.now();
     if(!event||!room?.game||['celebration','done'].includes(room.game.phase))return false;
     if(!pacing.allow(event,now,!!current,false))return false;
-    const line=dialogue(event.kind,now);if(!line)return false;
+    const partner=event.kind==='capture'?event.winner:event.partner;
+    const exchange=partner?getDeck().pickExchange(event.kind,now):null;
+    const line=partner?exchange?.opening:dialogue(event.kind,now);if(!line)return false;
     pacing.allow(event,now,!!current);
     clear();
-    current={...event,started:now,room:room.code,revision:room.game.revision,duration:event.kind==='capture'?4800:3200};
+    current={...event,started:now,room:room.code,revision:room.game.revision,duration:partner?5100:3200,partner,reply:exchange?.reply,replyAt:2300,replied:false,actorStarted:now,exchangeKind:event.kind};
     showActor(event.kind,event.seat,event.token,line);anchor(50,40);return true;
   }
   function anchor(x,y){
@@ -180,10 +128,9 @@ export function createMovieComedy({board,tokenNodes,reduced,getRoom}){
     if(!current)return;
     const room=getRoom(),age=now-current.started;
     if(!room?.game||room.code!==current.room||room.game.revision<current.revision||['celebration','done'].includes(room.game.phase)||age>=current.duration){clear();return;}
-    if(current.kind==='capture'&&age>=2500){
-      const line=dialogue('boast',now);
-      if(!line){clear();return;}
-      showActor('boast',current.winner.seat,current.winner.token,line);
+    if(current.reply&&!current.replied&&age>=current.replyAt){
+      current.replied=true;current.actorStarted=now;
+      showActor('boast',current.partner.seat,current.partner.token,current.reply);
     }
     if(board.dataset.renderer!=='webgl'&&actorNode){
       const b=board.getBoundingClientRect(),r=actorNode.getBoundingClientRect();
@@ -192,11 +139,11 @@ export function createMovieComedy({board,tokenNodes,reduced,getRoom}){
   }
   function matches(a){return current&&current.seat===a.seat&&current.token===a.token;}
   function pose(a,now){
-    if(!matches(a)||reduced.matches)return;
+    if(!matches(a)||reduced.matches||actorNode?.classList.contains('walking'))return;
     const age=(now-current.started)/1000;
     // Existing capture flight owns the victim's joints until it lands.
     if(current.kind==='capture'&&age<1.35)return;
-    const local=current.kind==='boast'?age-2.5:age;
+    const local=(now-current.actorStarted)/1000;
     const fade=Math.max(0,Math.min(1,local/.18,(current.duration/1000-age)/.3));
     if(current.kind==='chase'){
       a.head.rotation.y+=Math.sin(Math.min(1,local/.5)*Math.PI/2)*.85*fade;
@@ -225,10 +172,11 @@ export function createMovieComedy({board,tokenNodes,reduced,getRoom}){
     }
   }
   return {start,reset,clear,update,pose,matches,anchor,observeRoll:pacing.observeRoll,
+    beforeMove(){if(!current?.reply)clear();},
     victoryLine(key){
-      if(key!==victoryKey){victoryKey=key;victoryText=dialogue('victory',performance.now())||'കാടിന്റെ ചാമ്പ്യൻ! 🏆';}
+      if(key!==victoryKey){victoryKey=key;victoryText=dialogue('victory',performance.now())||'';}
       return victoryText;
     },
-    snapshot:()=>current?{kind:current.kind,seat:current.seat,token:current.token,text:bubble.textContent,reducedMotion:reduced.matches}:null,
+    snapshot:()=>current?{kind:current.kind,seat:current.seat,token:current.token,text:bubble.textContent,exchangeKind:current.exchangeKind,replied:current.replied,reducedMotion:reduced.matches}:null,
     dispose(){reset();bubble.remove();}};
 }

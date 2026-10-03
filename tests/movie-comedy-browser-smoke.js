@@ -31,9 +31,16 @@ async (page) => {
     }
     stage='capture';await seed('capture',13);await play();
     await Promise.all(pages.map(p=>p.waitForFunction(()=>window.jungleScene.comedy?.kind==='capture'&&window.jungleScene.capture?.victims.includes('1-0'))));
+    const victimLines=await Promise.all(pages.map(p=>p.evaluate(()=>window.jungleScene.comedy.text)));
+    assert(victimLines[0]===victimLines[1],'Players saw different victim lines');
     await phone.locator('#board').screenshot({path:'output/playwright/movie-capture-mobile.png'});
+    // Take the bonus move before the answer: play must continue and keep the pair.
+    await play();
     await Promise.all(pages.map(p=>p.waitForFunction(()=>window.jungleScene.comedy?.kind==='boast'&&window.jungleScene.comedy.pose?.rightArm>.5)));
-    assert(await phone.locator('#roll').isEnabled(),'Boast blocks bonus turn');
+    const answers=await Promise.all(pages.map(p=>p.evaluate(()=>window.jungleScene.comedy)));
+    assert(answers.every(a=>a.seat===0&&a.replied&&a.text!==victimLines[0]),'Captor reply missing or on wrong character');
+    assert(answers[0].text===answers[1].text,'Players saw different replies');
+    await remote.waitForFunction(()=>!document.querySelector('#roll').disabled&&window.jungleScene.comedy?.kind==='boast');
     await remote.locator('#board').screenshot({path:'output/playwright/movie-boast-desktop.png'});
     stage='reconnect';await phone.reload();await phone.waitForFunction(()=>window.jungleScene?.frames>3);
     assert(await phone.evaluate(()=>!window.jungleScene.comedy&&document.querySelector('.movie-callout').hidden),'Reconnect replayed a quote');

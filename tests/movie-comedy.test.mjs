@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame,roll,move} from '../game.mjs';
-import {moveComedy,noMoveComedy,createComedyPacing,createDialogueDeck,MOVIE_POOLS} from '../src/movie-comedy.js';
+import {moveComedy,noMoveComedy,createComedyPacing,createDialogueDeck,createMovieComedy,MOVIE_POOLS,MOVIE_QUOTES,MOVIE_EXCHANGES} from '../src/movie-comedy.js';
 const names=['A','B','C','D'];
 function play(seat,old,die,other,p){
   const g=createGame(names);g.turn=seat;g.tokens[seat][0]=old;g.tokens[other][1]=p;
@@ -11,7 +11,7 @@ function play(seat,old,die,other,p){
 test('chases and one-square misses use shared track coordinates across all four seats',()=>{
   for(let seat=0;seat<4;seat++)for(const [p,kind] of [[4,'chase'],[3,'nearMiss'],[1,'nearMiss']]){
     const other=(seat+1)%4,{g,m}=play(seat,13,2,other,p),before=JSON.stringify(g);
-    assert.deepEqual(moveComedy(g,m),{kind,seat:other,token:1});
+    assert.deepEqual(moveComedy(g,m),{kind,seat:other,token:1,partner:{seat,token:0}});
     assert.equal(JSON.stringify(g),before,'A reaction must not change the game');
   }
 });
@@ -75,7 +75,7 @@ test('each situation cycles every alternative before reuse and shared lines keep
   for(let i=0;i<24;i++){
     const now=i*10000,kind=['nearMiss','boast','noMove','victory'][i%4],line=deck.pick(kind,now);
     if(!line)continue;
-    assert.ok(!history.slice(-4).some(e=>e.line===line),'Adjacent situations repeated a line');
+    assert.ok(!history.slice(-4).some(e=>e.line===line&&now-e.now<60000),'Recent situations repeated a line');
     assert.ok(!history.some(e=>e.line===line&&now-e.now<60000),'A shared line bypassed its cooldown');
     history.push({line,now});
   }
@@ -84,11 +84,11 @@ test('each situation cycles every alternative before reuse and shared lines keep
 test('three/four-square approaches, genuine escapes and overtakes select the right speaker in every seat',()=>{
   for(let seat=0;seat<4;seat++){
     const other=(seat+1)%4;
-    for(const p of [5,6]){const {g,m}=play(seat,13,2,other,p);assert.deepEqual(moveComedy(g,m),{kind:'chase',seat:other,token:1});}
+    for(const p of [5,6]){const {g,m}=play(seat,13,2,other,p);assert.deepEqual(moveComedy(g,m),{kind:'chase',seat:other,token:1,partner:{seat,token:0}});}
     const escape=play(seat,16,4,other,1);
-    assert.deepEqual(moveComedy(escape.g,escape.m),{kind:'escape',seat,token:0});
+    assert.deepEqual(moveComedy(escape.g,escape.m),{kind:'escape',seat,token:0,partner:{seat:other,token:1}});
     const pass=play(seat,13,5,other,1);
-    assert.deepEqual(moveComedy(pass.g,pass.m),{kind:'overtake',seat,token:0});
+    assert.deepEqual(moveComedy(pass.g,pass.m),{kind:'overtake',seat,token:0,partner:{seat:other,token:1}});
   }
 });
 
@@ -110,4 +110,50 @@ test('room seeds produce consistent choices for two clients and different openin
   for(const [i,kind] of ['capture','boast','nearMiss','chase'].entries())assert.equal(a.pick(kind,i*30000),b.pick(kind,i*30000));
   const starts=new Set(['A','B','C','D'].map(seed=>createDialogueDeck(seed).pick('chase',0)));
   assert.equal(starts.size,4);
+});
+
+test('film-only catalogue covers every opener and reply, with documented sources',()=>{
+  const texts=Object.values(MOVIE_QUOTES).map(q=>q.text);
+  assert.equal(texts.length,new Set(texts).size);
+  for(const q of Object.values(MOVIE_QUOTES))assert.ok(q.actor&&q.film&&q.source.startsWith('https://'));
+  for(const pool of Object.values(MOVIE_POOLS))assert.ok(pool.every(line=>texts.includes(line)));
+  for(const pairs of Object.values(MOVIE_EXCHANGES))for(const ids of pairs){
+    assert.equal(ids.length,2);assert.notEqual(ids[0],ids[1]);assert.ok(ids.every(id=>MOVIE_QUOTES[id]));
+  }
+});
+
+test('paired conversations reserve both quotes globally and recover after exhaustion',()=>{
+  const deck=createDialogueDeck('PAIR'),history=[];
+  for(let i=0;i<30;i++){
+    const now=i*10000,kind=['capture','chase','nearMiss','escape','overtake'][i%5];
+    const exchange=deck.pickExchange(kind,now);if(!exchange)continue;
+    assert.ok(MOVIE_EXCHANGES[kind].some(([a,b])=>MOVIE_QUOTES[a].text===exchange.opening&&MOVIE_QUOTES[b].text===exchange.reply));
+    for(const line of Object.values(exchange))assert.ok(!history.some(e=>e.line===line&&now-e.now<60000));
+    history.push(...Object.values(exchange).map(line=>({line,now})));
+  }
+  const small=createDialogueDeck('');let count=0;
+  while(small.pick('victory',0))count++;
+  assert.equal(count,MOVIE_POOLS.victory.length);
+  assert.equal(small.pick('victory',59999),null);
+  assert.ok(small.pick('victory',60000),'A small pool must not stay locked forever');
+  const a=createDialogueDeck('SYNC'),b=createDialogueDeck('SYNC');
+  for(let now=0;now<180000;now+=10000)assert.deepEqual(a.pickExchange('capture',now),b.pickExchange('capture',now));
+});
+
+test('capture victim speaks, captor replies once, and a fast bonus move cannot erase the conversation',()=>{
+  const originalDocument=globalThis.document;
+  const node=()=>({style:{},dataset:{},classList:{add(){},remove(){},contains(){return false;}},setAttribute(){},remove(){}});
+  globalThis.document={createElement:node};
+  const board=node();board.dataset.renderer='webgl';board.append=()=>{};
+  const room={code:'PAIR',game:{phase:'roll',revision:5}};
+  const comedy=createMovieComedy({board,tokenNodes:new Map([['1-1',node()],['0-0',node()]]),reduced:{matches:false},getRoom:()=>room});
+  try{
+    const before=performance.now();assert.equal(comedy.start({kind:'capture',seat:1,token:1,winner:{seat:0,token:0}}),true);
+    const first=comedy.snapshot();assert.equal(first.seat,1);
+    comedy.beforeMove();assert.deepEqual(comedy.snapshot(),first);
+    comedy.update(before+2400);const reply=comedy.snapshot();
+    assert.equal(reply.seat,0);assert.equal(reply.token,0);assert.equal(reply.replied,true);assert.notEqual(reply.text,first.text);
+    comedy.update(before+3000);assert.equal(comedy.snapshot().text,reply.text);
+    room.game.phase='celebration';comedy.update(before+3100);assert.equal(comedy.snapshot(),null);
+  }finally{comedy.dispose();globalThis.document=originalDocument;}
 });

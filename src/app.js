@@ -421,7 +421,7 @@ async function runVisualQueue() {
   visualBusy=true; const epoch=visualEpoch;updateButtons();paintTokens();
   while(visualQueue.length && epoch===visualEpoch) {
     const m=visualQueue.shift(),el=tokenNodes.get(m.seat+'-'+m.token);
-    movieComedy.clear();
+    movieComedy.beforeMove();
     el.classList.add('walking');el.classList.remove('finished');
     placeVisual(m.seat,m.token,m.old);
     const steps=m.old<0?[0]:Array.from({length:m.next-m.old},(_,i)=>m.old+i+1);
@@ -607,9 +607,7 @@ function updateTimer() {
   const seconds=Math.max(0,Math.ceil((g.deadline-Date.now()-serverOffset)/1000));
   if($('dance-countdown')) $('dance-countdown').textContent=seconds+'s';
   if(g.phase==='celebration'&&$('victory-quip')){
-    const age=Math.max(0,Date.now()+serverOffset-g.celebration.startedAt);
-    const quips=[movieComedy.victoryLine(g.celebration.startedAt),'Oops… stuck the landing! 🤸','Keep up, jungle crew! 😉','Victory looks good on us! ✨'];
-    $('victory-quip').textContent=quips[Math.min(quips.length-1,Math.floor(age/3500))];
+    $('victory-quip').textContent=movieComedy.victoryLine(g.celebration.startedAt);
   }
   $('timer').textContent=g.phase==='done'?'':seconds+'s';
   const duration=g.phase==='celebration'?(g.celebration.endsAt-g.celebration.startedAt)/1000:45;
