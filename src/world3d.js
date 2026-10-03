@@ -1,6 +1,7 @@
 import * as T from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {createCaptureEffects} from './capture3d.js';
+import {createForestGiftEffects} from './forest-gifts3d.js';
 
 // A visual scene only: token routes and legal moves remain in the existing client.
 export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTime=()=>Date.now(),colors,track,lanes,yards,safe}) {
@@ -467,6 +468,7 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
   let width=0,height=0,lastFrame=0,frames=0,frameMs=0,stopped=false;
   const diagnostics={renderer:'WebGL 3D',frames:0,tiles:tileMeshes.length,animals:16,waterfalls:2,torchCount:torches.length,drawCalls:0,fps:0,performanceVersion:2,characterDetail:'full'};
   const captureEffects=createCaptureEffects({scene,camera,board,reduced,getRoom,diagnostics});
+  const forestGifts=createForestGiftEffects({scene,camera,board,animals,track,reduced,getRoom,diagnostics});
   function capture(move){
     const el=tokenNodes.get(move.seat+'-'+move.token),transform=getComputedStyle(el).transform;
     const matrix=transform==='none'?new DOMMatrix():new DOMMatrix(transform);
@@ -731,12 +733,14 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
         }
       }
       if(!winning)captureEffects.pose(a,now);
+      if(!winning)forestGifts.pose(a,now);
       a.g.updateMatrixWorld();
       if(inverse&&room&&legal)projectedHit(a,el,matrix,rect,inverse);
     }
     diagnostics.emotes=Array.from(activeEmotes.values()).map(({seat,kind,participants,jumpHeight,strength})=>({seat,kind,participants,jumpHeight,strength}));
     diagnostics.victory= victory ? {seats:victory.seats,final:victory.final,endsAt:victory.endsAt,routines:victory.seats.map(s=>['belly-clap','waddle-shimmy','prance-twirl','disco-step'][s]),flips:animals.filter(a=>victory.seats.includes(a.seat)).map(a=>({seat:a.seat,token:a.token,rotation:a.body.rotation.x,height:a.body.position.y}))} : null;
     diagnostics.highlight={seat:highlightedSeat,tokens:highlightedTokens,legalTokens};
+    forestGifts.frame(now);
     scene.updateMatrixWorld();
     for(const {batch,sources} of batches){
       sources.forEach((source,i)=>{
@@ -753,5 +757,5 @@ export function createJungleScene({board,tokenNodes,getRoom,getSeat,getServerTim
   }
   resize();requestAnimationFrame(tick);
   renderer.domElement.addEventListener('webglcontextlost',()=>{board.dataset.renderer='lost';},{passive:true});
-  return {resize,pickToken,celebrate,capture,resetCaptures:()=>captureEffects.reset(),renderer,scene,camera,diagnostics,dispose(){stopped=true;captureEffects.dispose();observer.disconnect();visibilityObserver.disconnect();effectObserver.disconnect();window.removeEventListener('scroll',onScroll);renderer.dispose();}};
+  return {resize,pickToken,celebrate,capture,gift:forestGifts.start,deferGift:forestGifts.defer,resetCaptures:()=>{captureEffects.reset();forestGifts.reset();},renderer,scene,camera,diagnostics,dispose(){stopped=true;captureEffects.dispose();forestGifts.dispose();observer.disconnect();visibilityObserver.disconnect();effectObserver.disconnect();window.removeEventListener('scroll',onScroll);renderer.dispose();}};
 }

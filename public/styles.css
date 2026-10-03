@@ -215,3 +215,7 @@ body.scene-3d{background:#123d2e}
 @keyframes capture-spin{0%{transform:scale(1.15) rotate(-10deg)}25%{transform:scale(.9) rotate(12deg)}75%{transform:translateY(-.8px) rotate(360deg)}100%{transform:scale(1) rotate(720deg)}}
 @media(max-width:650px){.capture-callout{font-size:14px;padding:6px 10px}}
 @media(prefers-reduced-motion:reduce){.capture-callout,.webgl-fallback .token.returning .animal-idle,.webgl-fallback .token.capture-prank .animal-stride{animation:none!important}}
+.forest-gift-callout{position:absolute;z-index:9;transform:translate(-50%,-100%);max-width:70%;padding:8px 12px;border:2px solid #d4ac65;border-radius:16px;background:#493124ed;color:#fff2c5;font-size:clamp(11px,1.5vw,16px);font-weight:800;text-align:center;pointer-events:none;box-shadow:0 3px 0 #31261980}
+.forest-gift-callout[hidden]{display:none}
+.scene-3d .forest-outfit{display:none}
+.forest-outfit{pointer-events:none}

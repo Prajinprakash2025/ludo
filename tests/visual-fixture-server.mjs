@@ -2,8 +2,8 @@
 import http from 'node:http';
 import {createLudoServer} from '../server.mjs';
 import {createGame} from '../game.mjs';
-let die=2;
-const app=createLudoServer({die:()=>die,turnMs:60000});
+let die=2,outfit=0;
+const app=createLudoServer({die:()=>die,giftPick:()=>outfit,turnMs:60000});
 app.server.listen(4174,'127.0.0.1',()=>console.log('Visual QA game at localhost:4174'));
 const control=http.createServer((req,res)=>{
   const q=new URL(req.url,'http://127.0.0.1').searchParams;
@@ -13,7 +13,13 @@ const control=http.createServer((req,res)=>{
   // A lower fixture revision tells clients this is a fresh seeded game, so
   // they snap to its positions rather than replaying fabricated token moves.
   g.revision=(r.game?.revision||0)-100;g.deadline=Date.now()+60000;
-  if(kind==='five') {die=5;g.tokens[0][0]=4;}
+  if(kind==='gift') {die=2;outfit=Number(q.get('outfit')||0);const seat=Number(q.get('seat')||0);g.turn=seat;g.tokens[seat][0]=2;g.forestGifts.tiles=[(seat*13+4)%52,30];}
+  else if(kind==='outfits') {
+    die=2;g.tokens[0][0]=2;g.forestGifts.tiles=[4,30];
+    for(let i=0;i<6;i++){const seat=Math.floor(i/2),token=i%2;g.forestGifts.outfits[seat][token]=i;g.tokens[seat][token]=i%2?15:4;}
+  }
+  else if(kind==='gift-capture'){die=2;g.turn=1;g.tokens[1][0]=0;g.tokens[0][0]=15;g.forestGifts.outfits[0][0]=0;g.forestGifts.tiles=[6,32];}
+  else if(kind==='five') {die=5;g.tokens[0][0]=4;}
   else if(kind==='capture'||kind==='capture-stack') {
     const actor=Number(q.get('seat')||0),victim=(actor+1)%4;
     if(!Number.isInteger(actor)||actor<0||actor>3){res.writeHead(400);res.end();return;}

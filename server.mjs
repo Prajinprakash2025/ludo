@@ -13,7 +13,7 @@ const TURN_MS = 45000;
 const EMOTES = ['Nice move! ✨','Oops! 🙈','Let’s go! 🚀','Good game! 🤝'];
 const MIME = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.svg':'image/svg+xml'};
 export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, botDelay = 1000,
-  allowedOrigins = process.env.ALLOWED_ORIGINS || '', publicUrl = process.env.PUBLIC_URL || '', voiceConfig} = {}) {
+  allowedOrigins = process.env.ALLOWED_ORIGINS || '', publicUrl = process.env.PUBLIC_URL || '', voiceConfig, giftPick = limit => randomInt(limit)} = {}) {
   const origins = new Set(allowedOrigins.split(',').map(x => x.trim()).filter(Boolean).map(value => {
     const url = new URL(value);
     if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
@@ -24,7 +24,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
   const rooms = new Map();
   const server = http.createServer(async (req,res) => {
     const path = new URL(req.url,'http://localhost').pathname;
-    const files = {'/':'index.html','/app.js':'app.js','/styles.css':'styles.css','/game.mjs':'../game.mjs','/robots.txt':'robots.txt','/sitemap.xml':'sitemap.xml','/favicon.svg':'favicon.svg'};
+    const files = {'/':'index.html','/app.js':'app.js','/styles.css':'styles.css','/game.mjs':'../game.mjs','/forest-gifts.mjs':'../forest-gifts.mjs','/robots.txt':'robots.txt','/sitemap.xml':'sitemap.xml','/favicon.svg':'favicon.svg'};
     const file = files[path];
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','same-origin');
@@ -54,8 +54,8 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
   }
   function deadline(r) {
     if (r.game?.phase === 'celebration') r.game.deadline = r.game.celebration.endsAt;
-    else if (r.game && r.game.phase !== 'done') r.game.deadline = Date.now()+turnMs;
-    r.botAt = Date.now()+botDelay;
+    else if (r.game && r.game.phase !== 'done') r.game.deadline = Math.max(Date.now(),r.game.giftUntil||0)+turnMs;
+    r.botAt = Math.max(Date.now(),r.game?.giftUntil||0)+botDelay;
   }
   function attach(ws,r,seat) {
     const p = r.seats[seat];
@@ -145,13 +145,14 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     if (!r.game || r.game.phase === 'done') throw new Error('The race is not running.');
     const g = r.game;
     if (g.phase === 'celebration') throw new Error('Enjoy the victory dance. The dice will return after it.');
+    if (Date.now() < (g.giftUntil||0)) { send(ws,{type:'state',room:publicRoom(r)}); return; }
     // Stale requests resync instead of punishing double clicks or a slow connection.
     if (m.revision !== g.revision) { send(ws,{type:'state',room:publicRoom(r)}); return; }
     if (g.turn !== ws.seat) throw new Error('Wait for your turn.');
     if (m.type === 'roll') {
       rules.roll(g,die(),names(r));
     } else if (m.type === 'move') {
-      rules.move(g,m.token,names(r));
+      rules.move(g,m.token,names(r),Date.now(),giftPick);
     } else throw new Error('Unknown action.');
     deadline(r); broadcast(r);
     if (g.phase === 'waiting') r.waitAt = Date.now()+1300;
@@ -221,6 +222,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
         continue;
       }
       if (!g || g.phase === 'done') continue;
+      if (Date.now() < (g.giftUntil||0)) continue;
       try {
         if (g.phase === 'celebration') {
           if (rules.finishCelebration(g)) { deadline(r); broadcast(r); }
@@ -228,7 +230,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
           if (Date.now() >= (r.waitAt || 0)) { rules.finishNoMove(g); deadline(r); broadcast(r); }
         } else if (r.seats[g.turn]?.bot && Date.now() >= r.botAt) {
           if (g.phase === 'roll') rules.roll(g,die(),names(r));
-          else if (g.phase === 'move') rules.move(g,rules.chooseBotMove(g),names(r));
+          else if (g.phase === 'move') rules.move(g,rules.chooseBotMove(g),names(r),Date.now(),giftPick);
           deadline(r); broadcast(r);
           if (g.phase === 'waiting') r.waitAt = Date.now()+1300;
         } else if (Date.now() > g.deadline) {

@@ -2,6 +2,8 @@ import { createJungleScene } from './world3d.js';
 import { COLORS, TRACK, LANES, YARDS, SAFE, FINISH } from '../game.mjs';
 import { socketAddress, inviteAddress } from './hosting.js';
 import { createRoomVoice } from './voice.js';
+import {GIFT_DURATION,OUTFITS} from '../forest-gifts.mjs';
+import {outfitSvg} from './outfit-svg.js';
 const backendUrl = typeof __LUDO_BACKEND_URL__ === 'string' ? __LUDO_BACKEND_URL__ : '';
 const $ = id => document.getElementById(id);
 const PALETTE = ['#df5e49','#64b85d','#e9b13e','#409acb'];
@@ -109,6 +111,7 @@ function connect() {
       voice.leave();
       if (session) { try { localStorage.removeItem('ludo-session-'+session.code); } catch {} }
       room = null; session = null; seat = -1; myId = ''; lastRollId = null; lastWinner = null;
+      resetVisuals({game:null});visualFresh=true;
       $('welcome').hidden = false; $('room-screen').hidden = true;
       $('mobile-dock').hidden=true; document.body.classList.remove('playing');
       history.replaceState({},'',location.pathname); setMenu('create'); updateButtons();
@@ -154,10 +157,10 @@ function updateButtons() {
   $('begin').disabled = joining;
   $('solo').disabled = joining;
   if (!room?.game) return;
-  const g = room.game, mine = !visualBusy && g.turn === seat && g.phase === 'roll' && ws?.readyState === WebSocket.OPEN && Date.now() >= diceAnimatingUntil;
+  const g = room.game, giftReady=Date.now()+serverOffset >= (g.giftUntil||0), mine = giftReady && !visualBusy && g.turn === seat && g.phase === 'roll' && ws?.readyState === WebSocket.OPEN && Date.now() >= diceAnimatingUntil;
   $('roll').disabled = !mine; $('dice').disabled = !mine;
   document.querySelectorAll('[data-seat-dice]').forEach(b=>{b.disabled=!(mine&&Number(b.dataset.seatDice)===seat);});
-  const canChoose = !visualBusy && g.turn===seat && g.phase==='move' && Date.now()>=diceAnimatingUntil && ws?.readyState===WebSocket.OPEN;
+  const canChoose = giftReady && !visualBusy && g.turn===seat && g.phase==='move' && Date.now()>=diceAnimatingUntil && ws?.readyState===WebSocket.OPEN;
   $('mobile-roll').disabled = !(mine || canChoose);
   $('mobile-dice').disabled = !mine;
 }
@@ -326,6 +329,7 @@ function makeToken(s,t,preview=false) {
   el.classList.add('token','explorer-'+s); el.dataset.seat=s; el.dataset.token=t;
   el.style.setProperty('--idle-delay',(-t*1.3-s*.7)+'s');
   el.innerHTML='<ellipse class="token-shadow" cy=".24" rx=".4" ry=".16" fill="#162a1d" opacity=".3"/><ellipse class="token-ring" cy=".23" rx=".43" ry=".22" fill="'+PALETTE[s]+'" fill-opacity=".25" stroke="'+PALETTE[s]+'" stroke-width=".035"/><g class="animal-idle" filter="url(#'+(preview?'preview-':'')+'token-shadow)">'+animal(s,preview)+'</g><circle cx=".28" cy=".24" r=".11" fill="#fff0c6" stroke="#665031" stroke-width=".025"/><text class="token-number" x=".28" y=".28" text-anchor="middle" fill="#493821" font-size=".12" font-weight="900">'+(t+1)+'</text><circle class="token-hit" cy="-.23" r=".53" fill="transparent"/>';
+  const outfit=document.createElementNS(NS,'g');outfit.classList.add('forest-outfit');el.append(outfit);
   return el;
 }
 for(let s=0;s<4;s++) for(let t=0;t<4;t++) {
@@ -352,6 +356,7 @@ function prepareVisuals(next) {
   visualRevision=g.revision;
   if(g.lastMove && g.lastMove.id!==visualMoveId) {
     visualMoveId=g.lastMove.id;
+    jungleView?.deferGift(g.lastMove.gift);
     visualQueue.push({...g.lastMove,captured:g.lastMove.captured.map(x=>({...x}))});
     queueMicrotask(runVisualQueue);
   }
@@ -410,6 +415,14 @@ async function runVisualQueue() {
       if(epoch!==visualEpoch)return;
       el.classList.remove('capture-prank');
     }
+    if(m.gift){
+      jungleView?.gift(m.gift);sound('emote');
+      const message=(room.seats[m.seat]?.name||LABELS[m.seat])+' got the '+OUTFITS[m.gift.outfit]+' outfit from the monkey!';
+      $('live-announcement').textContent=message;
+      if(!jungleView)toast(message);
+      await new Promise(resolve=>setTimeout(resolve,reducedMotion.matches?700:GIFT_DURATION));
+      if(epoch!==visualEpoch)return;
+    }
     paintTokens();
   }
   if(epoch!==visualEpoch) return;
@@ -417,6 +430,11 @@ async function runVisualQueue() {
 }
 function paintTokens() {
   const g=room?.game,locations=new Map();
+  let spots=$('forest-gift-spots');
+  if(!spots){spots=document.createElementNS(NS,'g');spots.id='forest-gift-spots';spots.setAttribute('aria-hidden','true');$('board').querySelector('#tokens').before(spots);}
+  const tiles=g?.forestGifts&&['roll','move','waiting'].includes(g.phase)&&g.active.some(s=>g.forestGifts.counts[s]<2)?g.forestGifts.tiles:[];
+  const spotKey=tiles.join(',');
+  if(spots.dataset.tiles!==spotKey){spots.dataset.tiles=spotKey;spots.innerHTML=tiles.map(tile=>{const [r,c]=TRACK[tile];return '<g transform="translate('+(c+.5)+' '+(r+.5)+')"><circle r=".35" fill="none" stroke="#ffe38b" stroke-width=".045"/><path d="M-.13 .1Q-.2-.16.13-.2Q.22 .03-.13 .1" fill="#9fdd70"/></g>';}).join('');}
   for(let s=0;s<4;s++) for(let t=0;t<4;t++) {
     const key=s+'-'+t,el=tokenNodes.get(key),p=visualPositions.get(key)??g?.tokens[s][t]??-1;
     const winning=g?.phase==='celebration'&&g.celebration.seats.includes(s);
@@ -428,10 +446,13 @@ function paintTokens() {
     const active=winning||!!room?.seats[s] && (!g || g.active.includes(s));
     el.style.opacity=active?'1':'.2';
     el.classList.toggle('active-explorer',active&&g?.turn===s&&['roll','move','waiting'].includes(g.phase));
-    const movable=!!g&&g.turn===seat&&s===seat&&g.phase==='move'&&g.legal.includes(t)&&Date.now()>=diceAnimatingUntil&&ws?.readyState===WebSocket.OPEN&&!visualBusy;
+    const movable=!!g&&Date.now()+serverOffset>=(g.giftUntil||0)&&g.turn===seat&&s===seat&&g.phase==='move'&&g.legal.includes(t)&&Date.now()>=diceAnimatingUntil&&ws?.readyState===WebSocket.OPEN&&!visualBusy;
     el.classList.toggle('movable',movable);el.setAttribute('role','button');el.setAttribute('tabindex',movable?'0':'-1');el.setAttribute('aria-disabled',String(!movable));
     el.setAttribute('aria-label',LABELS[s]+' token '+(t+1)+(p<0?' in camp':p===FINISH?' finished':' at step '+p)+(movable?', can move':''));
     el.dataset.visualStep=p;
+    const outfit=g?.forestGifts?.outfits[s]?.[t],outfitName=Number.isInteger(outfit)?OUTFITS[outfit]:'';
+    if(el.dataset.outfit!==outfitName){el.dataset.outfit=outfitName;el.querySelector('.forest-outfit').innerHTML=outfitSvg(outfit);}
+    if(Number.isInteger(outfit))el.setAttribute('aria-label',el.getAttribute('aria-label')+', wearing '+OUTFITS[outfit]);
   }
   for(const group of locations.values()) group.forEach(({el,r,c},i)=>{
     if(el.classList.contains('walking')||el.classList.contains('returning')) return;
@@ -533,9 +554,11 @@ function render() {
   } else { $('winner-layer').hidden=true; lastWinner=null; }
   updateButtons(); paintTokens(); updateTimer();
 }
+let observedGiftReady=0;
 function updateTimer() {
   if (!room?.game) return;
   const g=room.game;
+  if(g.giftUntil && observedGiftReady!==g.giftUntil && Date.now()+serverOffset>=g.giftUntil){observedGiftReady=g.giftUntil;updateButtons();paintTokens();}
   const seconds=Math.max(0,Math.ceil((g.deadline-Date.now()-serverOffset)/1000));
   if($('dance-countdown')) $('dance-countdown').textContent=seconds+'s';
   if(g.phase==='celebration'&&$('victory-quip')){

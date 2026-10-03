@@ -13,6 +13,30 @@ async function client(url) {
     throw new Error('Message timeout');
   }};
 }
+
+test('monkey gifts synchronize across players, hold bot turns, allow voice and survive resume',async()=>{
+  const app=createLudoServer({die:()=>2,giftPick:()=>5,botDelay:20,turnMs:60000});
+  await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));
+  const url='ws://127.0.0.1:'+app.server.address().port,clients=[];
+  try{
+    const a=await client(url);clients.push(a);a.send({type:'create',name:'Gift QA',mode:'solo'});
+    const joined=await a.wait(m=>m.type==='joined');await a.wait(m=>m.type==='state'&&m.room.game);
+    const room=app.rooms.get(joined.code),g=room.game;g.tokens[0][0]=2;
+    a.send({type:'roll',revision:g.revision});await a.wait(m=>m.type==='state'&&m.room.game?.phase==='move');
+    a.send({type:'move',token:0,revision:g.revision,outfit:0});
+    const award=await a.wait(m=>m.type==='state'&&m.room.game?.lastMove?.gift);
+    assert.equal(award.room.game.lastMove.gift.outfit,5);assert.equal(g.forestGifts.outfits[0][0],5);
+    const revision=g.revision,deadline=g.deadline;assert.ok(deadline>=g.giftUntil+59900);
+    a.send({type:'roll',revision});await a.wait(m=>m.type==='state'&&m.room.game?.revision===revision);
+    a.send({type:'voice-join'});await a.wait(m=>m.type==='voice-ready');
+    await delay(350);assert.equal(g.revision,revision,'Bot ran during gift');
+    a.ws.close();await delay(30);const again=await client(url);clients.push(again);again.send({type:'resume',code:joined.code,token:joined.token});
+    await again.wait(m=>m.type==='joined');const resumed=await again.wait(m=>m.type==='state');
+    assert.equal(resumed.room.game.forestGifts.outfits[0][0],5);assert.equal(resumed.room.game.giftUntil,g.giftUntil);
+    g.giftUntil=Date.now()-1;room.botAt=Date.now()-1;
+    await again.wait(m=>m.type==='state'&&m.room.game?.revision>revision);assert.equal(g.turn,1);
+  }finally{clients.forEach(c=>c.ws.terminate());await app.close();}
+});
 test('four-player rooms protect turns, dice and legal moves, and reconnect seats',async()=>{
   const app=createLudoServer({die:()=>6,botDelay:20});
   await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));

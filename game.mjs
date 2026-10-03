@@ -1,3 +1,4 @@
+import {createForestGifts,awardForestGift,GIFT_DURATION} from './forest-gifts.mjs';
 export const COLORS = ['red', 'green', 'yellow', 'blue'];
 export const SAFE = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
 export const FINISH = 56;
@@ -25,7 +26,7 @@ export function createGame(seats) {
   return {
     tokens: COLORS.map(() => [-1,-1,-1,-1]), active, turn: active[0],
     phase: 'roll', dice: null, sixes: 0, winner: null, revision: 0,
-    placements: [], celebration: null,
+    placements: [], celebration: null, forestGifts:createForestGifts(), giftUntil:0,
     legal: [], lastRoll: null, lastMove: null, deadline: 0,
     captures: [0,0,0,0], messages: ['The race is on. Roll a six to leave your nest!']
   };
@@ -74,7 +75,7 @@ export function finishNoMove(g) {
   if (g.dice === 6) { g.phase = 'roll'; g.dice = null; g.legal = []; g.revision++; }
   else advance(g);
 }
-export function move(g, token, names, now = Date.now()) {
+export function move(g, token, names, now = Date.now(), giftPick) {
   if (!Number.isInteger(token) || !legalMoves(g).includes(token)) throw new Error('That token cannot move. Choose a glowing token.');
   const seat = g.turn, old = g.tokens[seat][token];
   const next = old === -1 ? 0 : old+g.dice;
@@ -91,6 +92,11 @@ export function move(g, token, names, now = Date.now()) {
   g.tokens[seat][token] = next;
   g.captures[seat] += captured.length;
   g.lastMove = {seat,token,old,next,captured,id:g.revision+1};
+  const gift = awardForestGift(g,g.lastMove,giftPick);
+  if (gift) {
+    g.lastMove.gift = gift;
+    g.giftUntil = now+(next-old)*175+GIFT_DURATION+200;
+  }
   g.revision++;
   if (next === FINISH && g.tokens[seat].every(p => p === FINISH)) {
     const nextSeat = g.active[(g.active.indexOf(seat)+1)%g.active.length];
@@ -108,6 +114,7 @@ export function move(g, token, names, now = Date.now()) {
   if (captured.length) text = names[seat]+' captured '+captured.length+' token'+(captured.length > 1 ? 's' : '')+'! Bonus turn.';
   else if (next === FINISH) text = names[seat]+' brought a token home! Bonus turn.';
   else if (g.dice === 6) text += ' Roll again!';
+  if (gift) text += ' A forest monkey brought a new outfit!';
   say(g,text);
   if (g.dice === 6 || captured.length || next === FINISH) {
     g.phase = 'roll'; g.dice = null; g.legal = [];

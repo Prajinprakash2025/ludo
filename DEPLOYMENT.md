@@ -235,3 +235,18 @@ git pull --ff-only && pa website reload --domain ludoloop.pythonanywhere.com
 ```
 
 Keep the existing startup command and private voice-config.json. Reload clears RAM rooms; refresh every player's page and create a fresh room. First place dances alone for 15 seconds, then the race continues for second. Second place ends the race, both winning crews dance for 20 seconds, and the host can rematch. No third place is played.
+
+## Monkey outfit gifts — 3 October 2026
+
+This update needs both the Netlify frontend and PythonAnywhere backend. Netlify rebuilds after the GitHub push. Run in the existing PythonAnywhere Bash console:
+
+```bash
+source /home/ludoloop/nvm/nvm.sh
+nvm use 22
+cd /home/ludoloop/ludo
+git pull --ff-only && pa website reload --domain ludoloop.pythonanywhere.com
+```
+
+No packages or startup-command changes are required. The reload clears rooms; refresh all phones and start a fresh room. Leaf rings mark two outfit spots, which move after eight completed token moves. Exact landings can give a random outfit, at most two per seat, on different tokens with different styles. Launches, passing a spot, captures and home-lane moves do not start a gift. The monkey scene lasts three seconds, then dice play resumes; the next player's full turn time begins after the gift. Voice remains available.
+
+Six styles are available: explorer cap/glasses, pirate hat/moustache, leaf crown/cape, flower hat/garland, party hat/bow tie and aviator cap/goggles/scarf. Each outfit stays on its token through capture and reconnect until a fresh game. Test on two real phones: see the same gift/style, speak while it plays, capture an outfitted token, refresh and confirm the outfit stays, then rematch and confirm it clears. Phone smoothness and microphone quality still need physical-device testing.
