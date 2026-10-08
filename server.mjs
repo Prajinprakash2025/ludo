@@ -8,7 +8,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import * as rules from './game.mjs';
 import { createVoiceSignaling } from './voice-server.mjs';
 import {availableCharacter} from './characters.mjs';
-import {CHARACTER_EMOTES} from './emotes.mjs';
+import {CHARACTER_EMOTES,EMOTE_VERSION} from './emotes.mjs';
 import {createRoomChat} from './chat-server.mjs';
 
 const root = fileURLToPath(new URL('./public/',import.meta.url));
@@ -34,7 +34,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     res.setHeader('Referrer-Policy','same-origin');
     res.setHeader('Content-Security-Policy',"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws: wss:; media-src 'self' blob:; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'");
     res.setHeader('Cache-Control','no-cache');
-    if (path === '/health') { res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:true,voiceVersion:1,characterVersion:1,chatVersion:1,emoteVersion:2})); return; }
+    if (path === '/health') { res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:true,voiceVersion:1,characterVersion:1,chatVersion:1,emoteVersion:EMOTE_VERSION})); return; }
     if (!file) { res.writeHead(404); res.end('Not found'); return; }
     try {
       const ext = file.endsWith('.mjs') ? '.js' : file.slice(file.lastIndexOf('.'));
@@ -197,7 +197,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
       if (local) base = 'http://'+local.address+':'+server.address().port;
     }
     ws.shareBase = base;
-    send(ws,{type:'capabilities',characterVersion:1,chatVersion:1,emoteVersion:2});
+    send(ws,{type:'capabilities',characterVersion:1,chatVersion:1,emoteVersion:EMOTE_VERSION});
     ws.isAlive = true;
     ws.on('pong',() => { ws.isAlive = true; });
     ws.on('message',raw => {

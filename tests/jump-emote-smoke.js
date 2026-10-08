@@ -19,9 +19,8 @@ async (page) => {
     for(const p of [page,guest])await p.waitForFunction(([seat,kind])=>window.jungleScene.emotes?.some(e=>e.seat===seat&&e.kind===kind&&e.participants===4),[seat,kind]);
   };
   const click=async(p,kind)=>{
-    const label=kind[0].toUpperCase()+kind.slice(1);
-    await p.waitForFunction(()=>!document.querySelector('[data-emote]').disabled);
-    await p.getByRole('button',{name:label+' with my characters'}).click();
+    await p.waitForFunction(()=>!document.querySelector('#emote-select').disabled);
+    await p.locator('#emote-select').selectOption(String(['jump','dance','wave'].indexOf(kind)));
   };
   await click(page,'jump');await waitForEmote(0,'jump');
   for(const p of [page,guest])if(await p.evaluate(()=>window.jungleScene.emotes.some(e=>e.seat!==0)))throw new Error('Another player animated from host emote');

@@ -3,6 +3,8 @@ import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js'
 import {createCaptureEffects} from './capture3d.js';
 import {createForestGiftEffects} from './forest-gifts3d.js';
 import {seatCharacter} from '../characters.mjs';
+import {CHARACTER_EMOTES,emoteDuration} from '../emotes.mjs';
+import {funnyEmotePose} from './emote-pose.js';
 
 // A visual scene only: token routes and legal moves remain in the existing client.
 export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getServerTime=()=>Date.now(),colors,track,lanes,yards,safe}) {
@@ -505,7 +507,7 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
   const characterEmotes=new Map();
   function celebrate(seat,kind='jump'){
     const room=getRoom();
-    if(!room?.seats[seat]||!Number.isInteger(seat)||!['jump','dance','wave','celebrate','laugh'].includes(kind))return false;
+    if(!room?.seats[seat]||!Number.isInteger(seat)||!CHARACTER_EMOTES.some(e=>e.kind===kind))return false;
     characterEmotes.set(seat,{kind,started:performance.now(),room:room.code});
     return true;
   }
@@ -641,7 +643,7 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
     const transforms=animals.map(a=>getComputedStyle(tokenNodes.get(a.seat+'-'+a.token)).transform);
     const activeEmotes=new Map();
     for(const [seat,emote] of characterEmotes){
-      const age=(now-emote.started)/1000,duration=emote.kind==='dance'?2.8:emote.kind==='wave'?2.4:2.2;
+      const age=(now-emote.started)/1000,duration=emoteDuration(emote.kind);
       if(emote.room!==room?.code||age>=duration){characterEmotes.delete(seat);continue;}
       const strength=reduced.matches?0:Math.max(0,Math.min(1,age/.16,(duration-age)/.25));
       const hop=emote.kind==='jump'&&!reduced.matches&&age>.16&&age<1.9?Math.sin(Math.PI*((age-.16)%.58/.58)):0;
@@ -766,7 +768,7 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
             a.head.rotation.z=cheer*.12;a.halo.visible=true;
             a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*(2.2+cheer*.35)*strength);
             a.feet.forEach((foot,i)=>foot.rotation.x=Math.sin(age*9+i*Math.PI)*.25*strength);
-          }else{
+          }else if(!funnyEmotePose(a,emote.kind,age,strength)){
             a.body.rotation.z-=.07*strength;
             a.head.rotation.y+=.12*strength;a.head.rotation.z+=Math.sin(age*5)*.07*strength;
             a.arms[1].rotation.z=(2.35+Math.sin(age*17)*.3)*strength;

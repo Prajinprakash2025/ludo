@@ -7,7 +7,7 @@ import {outfitSvg} from './outfit-svg.js';
 import {createMovieComedy,moveComedy,noMoveComedy} from './movie-comedy.js';
 import {CHARACTERS,DEFAULT_CHARACTERS,seatCharacter} from '../characters.mjs';
 import {characterSvg} from './character-svg.js';
-import {CHARACTER_EMOTES} from '../emotes.mjs';
+import {CHARACTER_EMOTES,emoteDuration,emoteMinVersion} from '../emotes.mjs';
 import {createRoomChatUI} from './room-chat.js';
 const backendUrl = typeof __LUDO_BACKEND_URL__ === 'string' ? __LUDO_BACKEND_URL__ : '';
 const $ = id => document.getElementById(id);
@@ -121,7 +121,8 @@ function connect() {
         else for(let token=0;token<4;token++){
           const node=tokenNodes.get(m.seat+'-'+token);node.dataset.emote=emote.kind;
           clearTimeout(fallbackEmoteTimers.get(node));
-          fallbackEmoteTimers.set(node,setTimeout(()=>{delete node.dataset.emote;fallbackEmoteTimers.delete(node);},2800));
+          node.style.setProperty('--emote-duration',emoteDuration(emote.kind)+'s');
+          fallbackEmoteTimers.set(node,setTimeout(()=>{delete node.dataset.emote;node.style.removeProperty('--emote-duration');fallbackEmoteTimers.delete(node);},emoteDuration(emote.kind)*1000));
         }
       }
       toast((room?.seats[m.seat]?.name || 'Player')+': '+(emote?emote.icon+' '+emote.label+'!':m.text));
@@ -232,22 +233,26 @@ $('leave').onclick = () => {
 $('rules-button').onclick = () => $('rules-dialog').showModal();
 $('close-rules').onclick = $('got-it').onclick = () => $('rules-dialog').close();
 $('rules-dialog').onclick = e => { if (e.target === $('rules-dialog')) { const r=e.target.getBoundingClientRect(); if (e.clientX<r.left || e.clientX>r.right || e.clientY<r.top || e.clientY>r.bottom) e.target.close(); } };
-document.querySelector('.emotes').innerHTML=CHARACTER_EMOTES.map((emote,index)=>
-  '<button type="button" class="emote-action" data-emote="'+index+'" title="'+emote.label+' with your explorers" aria-label="'+emote.label+' with my characters"><span aria-hidden="true">'+emote.icon+'</span><span>'+emote.label+'</span></button>'
-).join('');
-document.querySelectorAll('[data-emote]').forEach(b=>{
-  b.onclick=()=>{
-    if(b.disabled||!room||!send({type:'emote',index:Number(b.dataset.emote)}))return;
-    // The server permits one emote every two seconds, regardless of turn.
-    emoteReadyAt=Date.now()+2050;updateEmoteButtons();
-    setTimeout(updateEmoteButtons,2050);
-  };
-});
+document.querySelector('.emotes').innerHTML='<select id="emote-select" aria-label="Funny emotes"><option value="">🎭 Funny emotes</option>'+CHARACTER_EMOTES.map((emote,index)=>
+  '<option data-emote="'+index+'" value="'+index+'">'+emote.icon+' '+emote.label+'</option>'
+).join('')+'</select>';
+const emoteSelect=$('emote-select');
+emoteSelect.onchange=()=>{
+  const index=Number(emoteSelect.value),option=emoteSelect.selectedOptions[0];
+  const valid=emoteSelect.value!==''&&!emoteSelect.disabled&&!option.disabled;
+  emoteSelect.value='';
+  if(!valid||!room||!send({type:'emote',index}))return;
+  // The server permits one emote every two seconds, regardless of turn.
+  emoteReadyAt=Date.now()+2050;updateEmoteButtons();
+  setTimeout(updateEmoteButtons,2050);
+};
 function updateEmoteButtons(){
-  document.querySelectorAll('[data-emote]').forEach(button=>{
-    const waiting=Number(button.dataset.emote)>2&&emoteVersion<2;
-    button.disabled=!room||ws?.readyState!==WebSocket.OPEN||Date.now()<emoteReadyAt||waiting;
-    button.title=waiting?'This action is getting ready.':CHARACTER_EMOTES[Number(button.dataset.emote)].label+' with your explorers';
+  emoteSelect.disabled=!room||ws?.readyState!==WebSocket.OPEN||Date.now()<emoteReadyAt;
+  emoteSelect.options[0].textContent=Date.now()<emoteReadyAt?'🎭 One moment…':'🎭 Funny emotes';
+  emoteSelect.querySelectorAll('[data-emote]').forEach(option=>{
+    const waiting=emoteVersion<emoteMinVersion(Number(option.dataset.emote));
+    option.disabled=waiting;
+    option.title=waiting?'This action is getting ready.':CHARACTER_EMOTES[Number(option.dataset.emote)].label;
   });
 }
 function rollNow() {

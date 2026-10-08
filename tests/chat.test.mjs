@@ -44,7 +44,7 @@ test('room text and film lines authenticate the speaker, stay private, and resto
   assert.equal(app.rooms.get(code).chat.length,2);
 }));
 
-test('invalid or rapid chat never changes a turn or closes the gameplay socket; all five emotes use their sender',()=>fixture(async(app,connect)=>{
+test('invalid or rapid chat never changes a turn or closes the gameplay socket; all fifteen emotes use their sender',()=>fixture(async(app,connect)=>{
   const a=await connect(),b=await connect();a.send({type:'create',name:'A'});const {code}=await a.wait(m=>m.type==='joined');
   b.send({type:'join',code,name:'B'});await b.wait(m=>m.type==='joined');a.send({type:'start'});
   await a.wait(m=>m.type==='state'&&m.room.game);const r=app.rooms.get(code),before=JSON.stringify(r.game);
@@ -60,7 +60,7 @@ test('invalid or rapid chat never changes a turn or closes the gameplay socket; 
   assert.equal(a.ws.readyState,WebSocket.OPEN);assert.equal(r.chat.length,1);
   // The other player's independent social budget remains available during A's turn.
   for(let index=0;index<CHARACTER_EMOTES.length;index++){
-    r.seats[1].lastEmote=0;b.send({type:'emote',index,seat:0});
+    r.seats[1].lastEmote=0;r.seats[1].ws.socialWindowAt=0;b.send({type:'emote',index,seat:0});
     const event=await a.wait(m=>m.type==='emote');assert.equal(event.seat,1);assert.equal(event.text,CHARACTER_EMOTES[index].wireText);
   }
   assert.deepEqual(CHARACTER_EMOTES.slice(0,3).map(e=>e.wireText),['Nice move! ✨','Oops! 🙈','Let’s go! 🚀']);

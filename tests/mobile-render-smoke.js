@@ -29,7 +29,7 @@ async (page) => {
     if(quality.quality!=='mobile-smooth'||Math.abs(pixelRatio-1.65)>.01||quality.characterDetail!=='full')throw new Error('Balanced mobile character quality missing');
     const before=quality.waterTime;
     await phone.waitForFunction(previous=>window.jungleScene.waterTime>previous&&window.jungleScene.fireTime>previous,before);
-    await phone.getByRole('button',{name:'Wave with my characters'}).click();
+    await phone.locator('#emote-select').selectOption('2');
     await phone.waitForFunction(()=>window.jungleScene.emotes?.some(e=>e.kind==='wave'&&e.seat===0&&e.participants===4));
     await phone.locator('#board').screenshot({path:'output/playwright/mobile-clarity-balanced.png'});
     if(errors.length)throw new Error(errors.join('\n'));

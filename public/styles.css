@@ -262,3 +262,33 @@ body.scene-3d{background:#123d2e}
 @keyframes chat-laugh{from{transform:rotate(-8deg) scaleY(.94)}to{transform:rotate(8deg) scaleY(1.04)}}
 @keyframes chat-cheer{from{transform:translateY(0) rotate(-5deg)}to{transform:translateY(-8px) rotate(5deg)}}
 @media(prefers-reduced-motion:reduce){.token[data-emote] .animal-idle{animation:none!important}}
+
+/* One native dropdown, with the phone's own accessible picker. */
+.emotes,.scene-3d .play-panel .emotes{display:block;width:172px}
+.scene-3d .play-panel .emotes{left:-185px}
+#emote-select{width:100%;min-height:44px;padding:9px 12px;font-family:inherit;font-size:13px;font-weight:700;color:#fff5cf;background:#795128;border:1px solid #e6c070;border-radius:10px;cursor:pointer;box-shadow:0 3px 0 #362818}
+#emote-select option{color:#fff5cf;background:#493421;font-size:15px}
+#emote-select:focus-visible{outline:3px solid #ffcf78;outline-offset:2px}
+#emote-select:disabled{opacity:.6;cursor:default}
+@media(min-width:651px) and (max-width:1300px){.scene-3d .play-panel .emotes{left:0;bottom:calc(100% + 8px)}}
+@media(max-width:650px){.scene-3d .play-panel .emotes{left:auto;right:2px;bottom:100%;width:calc(100% - 104px);padding:4px}.emotes{flex:1;min-width:0}#emote-select{font-size:12px;padding:9px 6px}}
+.token[data-emote=scared] .animal-idle{animation:emote-shiver .09s alternate 28}
+.token[data-emote=flee] .animal-idle{animation:emote-run .14s alternate 18}
+.token[data-emote=taunt] .animal-idle{animation:emote-taunt .32s alternate 8}
+.token[data-emote=cry] .animal-idle{animation:emote-sob .18s alternate 14}
+.token[data-emote=angry] .animal-idle{animation:emote-stomp .22s alternate 12}
+.token[data-emote=sneak] .animal-idle{animation:emote-sneak .45s alternate 6}
+.token[data-emote=faint] .animal-idle{animation:emote-faint var(--emote-duration,3.2s) both}
+.token[data-emote=bow] .animal-idle{animation:emote-bow var(--emote-duration,2.6s) both}
+.token[data-emote=flex] .animal-idle{animation:emote-flex .4s alternate 6}
+.token[data-emote=spin] .animal-idle{animation:emote-spin var(--emote-duration,2.6s) both}
+@keyframes emote-shiver{from{transform:translateX(-2px) rotate(-4deg)}to{transform:translateX(2px) rotate(4deg)}}
+@keyframes emote-run{from{transform:translateY(0) rotate(-12deg) scaleY(.92)}to{transform:translateY(-5px) rotate(12deg) scaleY(1.08)}}
+@keyframes emote-taunt{from{transform:rotate(-14deg) translateX(-3px)}to{transform:rotate(14deg) translateX(3px)}}
+@keyframes emote-sob{from{transform:translateY(2px) scaleY(.84)}to{transform:translateY(4px) rotate(5deg) scaleY(.9)}}
+@keyframes emote-stomp{from{transform:translateY(-5px) rotate(-7deg)}to{transform:translateY(0) rotate(7deg)}}
+@keyframes emote-sneak{from{transform:translateX(-4px) scaleY(.72) rotate(-8deg)}to{transform:translateX(4px) scaleY(.72) rotate(8deg)}}
+@keyframes emote-faint{0%,100%{transform:none}25%,85%{transform:rotate(-80deg) translateY(3px)}}
+@keyframes emote-bow{0%,100%{transform:none}40%,65%{transform:translateY(5px) scaleY(.55)}}
+@keyframes emote-flex{from{transform:scale(1.08,.98) rotate(-4deg)}to{transform:scale(1.18,1.04) rotate(4deg)}}
+@keyframes emote-spin{0%{transform:rotate(0)}90%,100%{transform:rotate(720deg)}}

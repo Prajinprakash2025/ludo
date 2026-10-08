@@ -86,3 +86,9 @@ For deterministic animation checks, start tests/visual-fixture-server.mjs, then 
 Rule tests cover entry, exact finish, captures, safe squares, triple sixes, invalid moves, player rotation and wins. Network tests use real WebSocket clients to cover four-player rooms, host actions, forged dice, stale moves, reconnects and bot advancement.
 
 The scene checks in tests/native-world-smoke.js verify the public 3D renderer, 72 tiles, 16 explorers, two waterfalls, eight torches, changing water/fire time, reduced motion, mobile camera proportions and absence of image backdrops. No fonts, tracking or accounts from third-party services are required to play.
+
+## Funny emote picker
+
+One compact native dropdown replaces the action cards. Select an action to play it immediately on your four explorers; the picker resets so the same action can be selected again after the two-second cooldown. The 15 choices are Jump, Dance, Wave, Celebrate, Laugh, Scared, Run away, Taunt, Cry, Angry stomp, Sneak, Faint, Bow, Flex and Spin. New actions have Malayalam labels. They animate existing joints for 2.2–3.2 seconds, with finite SVG fallback reactions and reduced-motion support. Each action is shared with the room, without changing token positions, dice or capture rules.
+
+The ten new actions require backend `emoteVersion: 3`; older backends keep their supported actions available.

@@ -19,7 +19,7 @@ async (page) => {
   const width=await page.locator('#board').evaluate(el=>el.getBoundingClientRect().width);
   if(width<950) throw new Error('Desktop board too small: '+width);
   await page.waitForFunction(()=>document.querySelectorAll('#board .active-explorer').length===4);
-  await page.locator('[data-emote="0"]').click();await page.locator('#toast').filter({hasText:'Jump!'}).waitFor();
+  await page.locator('#emote-select').selectOption('0');await page.locator('#toast').filter({hasText:'Jump!'}).waitFor();
   await page.locator('.activity summary').click();
   if(!await page.locator('#activity-log').isVisible()) throw new Error('Journal unavailable');
   await page.screenshot({path:'output/playwright/jungle-live-preview.png',fullPage:true});

@@ -26,7 +26,7 @@ async (page) => {
   await setup('stack');
   const rules=await actor.locator('#board .token:not(.movable) .token-hit').evaluateAll(els=>els.every(el=>getComputedStyle(el).pointerEvents==='none'));
   if(!rules)throw new Error('Inactive pieces still block clicks');
-  await actor.getByRole('button',{name:'Jump with my characters'}).click();
+  await actor.locator('#emote-select').selectOption('0');
   await actor.waitForFunction(()=>window.jungleScene.emotes?.some(e=>e.jumpHeight>.5));
   let hit=await actor.locator(own+'[data-token="0"] .token-hit').boundingBox();
   await actor.mouse.click(hit.x+hit.width/2,hit.y+hit.height/2);

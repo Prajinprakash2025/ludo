@@ -291,3 +291,18 @@ curl -sS https://ludoloop.pythonanywhere.com/health
 Health should include `"chatVersion":1` and `"emoteVersion":2`. No dependency install, startup-command change or voice-configuration change is required. Reload clears rooms and their chat history; refresh both phones and create a new room. Before the backend update, original actions still work while chat sending and the new Celebrate/Laugh actions are unavailable.
 
 Open Chat to switch between All Chat and Movie Dialogues. Test two phones: send text both ways, choose a film line and confirm the correct explorer speaks on both boards, try all five actions, play a normal dice/move while chat is open, and refresh one phone to recover the recent transcript without replaying speech. Messages and emotes use the existing room socket; social-message limits are separate from game and voice traffic. The 60-message transcript stays in server memory only. A winner's dance takes priority over character speech, but chat stays available.
+
+## Fifteen emotes and dropdown — 8 October 2026
+
+After the frontend is published, update PythonAnywhere:
+
+```bash
+source /home/ludoloop/nvm/nvm.sh
+nvm use 22
+cd /home/ludoloop/ludo
+git pull --ff-only && pa website reload --domain ludoloop.pythonanywhere.com
+sleep 5
+curl -sS https://ludoloop.pythonanywhere.com/health
+```
+
+Expect `"emoteVersion":3`. No new dependencies or startup-command changes. Reload clears active rooms; refresh both phones and create a new room. Open Funny emotes, try Scared, Run away and Faint, and confirm the sender animates on both phones. Play a dice/move/capture between actions. Verify phone scrolling and frame rate on real devices. If an immediate post-reload request gives 502, retry health; persistent failures need the latest error/server logs.

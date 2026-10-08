@@ -31,7 +31,7 @@ async (page) => {
     for (const peer of peers) {
       await peer.waitForFunction(() => document.querySelector('#board [data-seat="0"][data-token="0"]')?.getAttribute('data-visual-step') === '0');
     }
-    await page.getByRole('button',{name:'Dance with my characters'}).click();
+    await page.locator('#emote-select').selectOption('1');
     await Promise.all(peers.map(peer => peer.waitForFunction(() => window.jungleScene?.emotes?.some(e => e.seat===0 && e.kind==='dance' && e.participants===4))));
     await page.context().grantPermissions(['clipboard-read','clipboard-write']);
     await page.locator('#copy-link').click();

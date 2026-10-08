@@ -33,16 +33,16 @@ async (page) => {
     await phone.waitForFunction(()=>document.querySelector('#board .token[data-seat="0"][data-token="0"]').dataset.visualStep==='0');
     assert(await friend.locator('#chat-input').inputValue()==='Draft survives a turn','State updates lost the chat draft');
     await phone.locator('#chat-close').click();await friend.locator('#chat-close').click();
-    stage='emotes';const before=await phone.locator('#board .token').evaluateAll(nodes=>nodes.map(n=>n.dataset.visualStep));
-    for(const [index,kind] of ['jump','dance','wave','celebrate','laugh'].entries()){
-      await friend.waitForFunction(i=>!document.querySelector('[data-emote="'+i+'"]').disabled,index);await friend.locator('[data-emote="'+index+'"]').click();
+    stage='emotes';assert(await friend.locator('#emote-select option[data-emote]').count()===15,'Missing emote choices');const before=await phone.locator('#board .token').evaluateAll(nodes=>nodes.map(n=>n.dataset.visualStep));
+    for(const [index,kind] of ['jump','dance','wave','celebrate','laugh','scared','flee','taunt','cry','angry','sneak','faint','bow','flex','spin'].entries()){
+      await friend.waitForFunction(()=>!document.querySelector('#emote-select').disabled);await friend.locator('#emote-select').selectOption(String(index));assert(await friend.locator('#emote-select').inputValue()==='','Picker did not reset for repeated use');assert(await friend.locator('#emote-select').isDisabled(),'Picker skipped sender cooldown');
       await Promise.all(pages.map(p=>p.waitForFunction(k=>window.jungleScene.emotes?.some(e=>e.kind===k&&e.seat===1&&e.participants===4),kind)));
       assert(await phone.evaluate(()=>window.jungleScene.emotes.every(e=>e.seat===1)),'Another player animated');
     }
     assert(JSON.stringify(before)===JSON.stringify(await phone.locator('#board .token').evaluateAll(nodes=>nodes.map(n=>n.dataset.visualStep))),'Emotes moved game pieces');
-    stage='reduced';await phone.emulateMedia({reducedMotion:'reduce'});await friend.waitForFunction(()=>!document.querySelector('[data-emote="4"]').disabled);await friend.locator('[data-emote="4"]').click();
+    await phone.screenshot({path:'output/playwright/emotes-mobile.png'});await friend.screenshot({path:'output/playwright/emotes-desktop.png'});stage='reduced';await phone.emulateMedia({reducedMotion:'reduce'});await friend.waitForFunction(()=>!document.querySelector('#emote-select').disabled);await friend.locator('#emote-select').selectOption('4');
     await phone.waitForFunction(()=>window.jungleScene.emotes?.some(e=>e.kind==='laugh'&&e.strength===0));await phone.emulateMedia({reducedMotion:'no-preference'});
-    stage='resume';await phone.reload();await phone.locator('#room-screen').waitFor({state:'visible'});await phone.waitForFunction(()=>window.ludoChat.snapshot().count===3&&window.jungleScene?.frames>3);
+    await phone.waitForFunction(()=>!document.querySelector('#emote-select').disabled);await phone.locator('#emote-select').focus();await phone.keyboard.press('ArrowDown');await phone.keyboard.press('Enter');await friend.waitForFunction(()=>window.jungleScene.emotes?.some(e=>e.kind==='jump'&&e.seat===0));stage='resume';await phone.reload();await phone.locator('#room-screen').waitFor({state:'visible'});await phone.waitForFunction(()=>window.ludoChat.snapshot().count===3&&window.jungleScene?.frames>3);
     assert(await phone.locator('.movie-callout').isHidden(),'History replayed a dialogue');
     await phone.locator('#chat-open').click();await phone.locator('#chat-tab-all').focus();await phone.keyboard.press('ArrowRight');
     assert(await phone.locator('#chat-tab-dialogues').getAttribute('aria-selected')==='true','Keyboard tab selection failed');
@@ -51,18 +51,18 @@ async (page) => {
       await phone.setViewportSize({width,height:844});await phone.locator('#chat-open').click();
       assert(await phone.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile horizontal overflow');
       const bounds=await phone.locator('#room-chat').boundingBox();assert(bounds.x>=0&&bounds.x+bounds.width<=width&&bounds.y>=0,'Chat outside viewport');
-      const buttonBounds=await phone.locator('[data-emote="4"]').boundingBox();assert(buttonBounds.width>=25,'Emote button collapsed');
+      const buttonBounds=await phone.locator('#emote-select').boundingBox();assert(buttonBounds.width>=25,'Emote button collapsed');
       await phone.locator('#chat-close').click();
     }
-    results.push('two players: text, safe markup, 33 film buttons, remote character speech, unread, dice/move while open, draft persistence, five emotes, reduced motion, resume, keyboard, 320/390px');
+    results.push('two players: text, safe markup, 33 film buttons, remote character speech, unread, dice/move while open, draft persistence, fifteen emotes, reduced motion, resume, keyboard, 320/390px');
     for(const ctx of contexts)await ctx.close();contexts.length=0;
     stage='fallback';const fallback=await browser.newContext({viewport:{width:390,height:844}});contexts.push(fallback);
     await fallback.route('**/app.js',r=>r.fulfill({path:'output/playwright/chat-app.js',contentType:'text/javascript'}));
     await fallback.addInitScript(()=>{const native=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(kind,...args){return /webgl/.test(kind)?null:native.call(this,kind,...args);};});
     const fp=await fallback.newPage();fp.on('pageerror',e=>errors.push(e.message));await fp.goto('http://127.0.0.1:4174');await fp.locator('#begin').click();await fp.locator('#room-screen').waitFor({state:'visible'});
     await fp.locator('#chat-open').click();await fp.locator('#chat-tab-dialogues').click();await fp.locator('[data-quote="olakka"]').click();await fp.locator('.movie-callout').waitFor({state:'visible'});
-    if(await fp.locator('#room-chat').isVisible())await fp.locator('#chat-close').click();await fp.locator('[data-emote="4"]').click();await fp.waitForFunction(()=>document.querySelectorAll('.token[data-emote="laugh"]').length===4);
-    assert(await fp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Fallback overflow');results.push('SVG fallback speech and laugh');
+    if(await fp.locator('#room-chat').isVisible())await fp.locator('#chat-close').click();await fp.locator('#emote-select').selectOption('4');await fp.waitForFunction(()=>document.querySelectorAll('.token[data-emote="laugh"]').length===4);
+    assert(await fp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Fallback overflow');await fp.waitForFunction(()=>!document.querySelector('#emote-select').disabled);await fp.locator('#emote-select').selectOption('11');await fp.waitForFunction(()=>document.querySelectorAll('.token[data-emote="faint"]').length===4);await fp.screenshot({path:'output/playwright/emotes-fallback.png'});results.push('SVG fallback speech, laugh and faint');
     await fallback.close();contexts.length=0;
     stage='legacy';const legacy=await browser.newContext({viewport:{width:390,height:844}});contexts.push(legacy);
     await legacy.route('**/app.js',r=>r.fulfill({path:'output/playwright/chat-app.js',contentType:'text/javascript'}));
