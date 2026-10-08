@@ -79,7 +79,7 @@ test('normal server startup serves health and WebSocket rooms over a hosting IPC
       }).on('error',reject);
     });
     assert.equal(body.status,200);
-    assert.deepEqual(JSON.parse(body.body),{ok:true,voiceVersion:1,characterVersion:1});
+    assert.deepEqual(JSON.parse(body.body),{ok:true,voiceVersion:1,characterVersion:1,chatVersion:1,emoteVersion:2});
     const room = await joinedFrom('ws://localhost/','https://crew.netlify.app',{
       createConnection:() => net.connect({path:socketPath})
     });

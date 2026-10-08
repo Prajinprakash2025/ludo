@@ -157,3 +157,19 @@ test('capture victim speaks, captor replies once, and a fast bonus move cannot e
     room.game.phase='celebration';comedy.update(before+3100);assert.equal(comedy.snapshot(),null);
   }finally{comedy.dispose();globalThis.document=originalDocument;}
 });
+test('clicked film lines speak in the lobby, survive a move, expire, and reject invented IDs',()=>{
+  const originalDocument=globalThis.document;
+  const node=()=>({style:{},dataset:{},classList:{add(){},remove(){},contains(){return false;}},setAttribute(){},remove(){}});
+  globalThis.document={createElement:node};
+  const board=node();board.dataset.renderer='webgl';board.append=()=>{};
+  const room={code:'CHAT',seats:[{id:'A'},{id:'B'}],game:null};
+  const comedy=createMovieComedy({board,tokenNodes:new Map([['1-0',node()]]),reduced:{matches:true},getRoom:()=>room});
+  try{
+    assert.equal(comedy.speak(1,'made-up'),false);assert.equal(comedy.speak(3,'olakka'),false);
+    const start=performance.now();assert.equal(comedy.speak(1,'olakka'),true);
+    assert.equal(comedy.snapshot().text,MOVIE_QUOTES.olakka.text);assert.equal(comedy.snapshot().seat,1);
+    comedy.beforeMove();comedy.update(start+1000);assert.ok(comedy.snapshot());
+    comedy.update(start+3300);assert.equal(comedy.snapshot(),null);
+    assert.equal(comedy.speak(1,'olakka'),true);room.code='NEW';comedy.update(performance.now());assert.equal(comedy.snapshot(),null);
+  }finally{comedy.dispose();globalThis.document=originalDocument;}
+});

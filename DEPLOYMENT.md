@@ -274,3 +274,20 @@ curl -sS https://ludoloop.pythonanywhere.com/health
 Health should include `"characterVersion":1`. If the server is still on the older version, the character picker stays unavailable while regular play remains available. No packages, startup-command changes or edits to private voice-config.json are required. Reload clears in-memory rooms; refresh every player's browser and create a new room. On two phones, choose different animals, confirm taken choices, play a move and capture, refresh to resume, then test outfits and victory.
 
 Only sixteen game animals are rendered. Selected models use the existing joints, sphere detail, colors, highlights and outfit attachments. The scene rebuilds when the lobby's selected species change; it is reused during play. Replaced scenes dispose their canvas, observers, GPU resources and context. The picker uses static SVG portraits.
+
+
+## Room chat and five emotes — 8 October 2026
+
+This update needs both the Netlify frontend and the PythonAnywhere backend. After main is published, run in your existing PythonAnywhere console:
+
+```bash
+source /home/ludoloop/nvm/nvm.sh
+nvm use 22
+cd /home/ludoloop/ludo
+git pull --ff-only && pa website reload --domain ludoloop.pythonanywhere.com
+curl -sS https://ludoloop.pythonanywhere.com/health
+```
+
+Health should include `"chatVersion":1` and `"emoteVersion":2`. No dependency install, startup-command change or voice-configuration change is required. Reload clears rooms and their chat history; refresh both phones and create a new room. Before the backend update, original actions still work while chat sending and the new Celebrate/Laugh actions are unavailable.
+
+Open Chat to switch between All Chat and Movie Dialogues. Test two phones: send text both ways, choose a film line and confirm the correct explorer speaks on both boards, try all five actions, play a normal dice/move while chat is open, and refresh one phone to recover the recent transcript without replaying speech. Messages and emotes use the existing room socket; social-message limits are separate from game and voice traffic. The 60-message transcript stays in server memory only. A winner's dance takes priority over character speech, but chat stays available.

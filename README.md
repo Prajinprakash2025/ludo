@@ -61,7 +61,17 @@ This project is not automatically published by running it locally. Local rooms a
 - First player to bring four tokens home gets first place and a 15-second solo crew dance. Dice pause for the dance, then the remaining players race for second place. Second place requires all four tokens home, even in a two-player game. Once second place is earned, the race ends: both winning crews dance for 20 seconds, then the host can start a rematch. There is no third place.
 - Bear belly-claps, Panda waddles and shimmies, Deer prances and twirls, and Fox does disco steps. Each routine also includes comic somersaults, soft bounce landings and a cheeky victory pose. Only winning crews join the automatic victory dances; timers are shared by all clients and survive refresh. Reduced motion shows a celebration pose.
 
+## Room chat and explorer emotes
+
+Open **Chat** beside the explorer actions. **All Chat** lets the room's human players send messages; **Movie Dialogues** offers the existing 33 credited film excerpts. Clicking a line sends it to the room transcript and shows a short bubble on your explorer. On phones, choosing a line closes the panel to reveal the character. The existing automatic movie conversations still run during suitable game events.
+
+Messages are visible only to joined players in that room. The last 60 messages are kept in server memory for reconnect; they disappear when the room expires or the server restarts. History does not replay character speech. Text is limited to 240 characters and messages are spaced by 1.5 seconds. Chat does not pause dice, turns or optional voice. During winner celebrations, the dialogue remains in chat while the victory animation takes priority on the board.
+
+Five actions are available: **Jump**, **Dance**, **Wave**, **Celebrate**, and **Laugh**. They animate only the sender's explorers using the existing joints; reduced-motion settings suppress animated movement. Chat and the two new actions require the updated backend; see the room-chat section in DEPLOYMENT.md.
+
 ## Verify
+
+The browser scenario in `tests/room-chat-browser-smoke.js` uses the isolated visual fixture and a same-origin build at `output/playwright/chat-app.js`. It covers two real browser contexts, messages, clicked film lines, five actions, gameplay with chat open, reconnect, reduced motion, SVG fallback, small-screen layout and older-backend compatibility.
 
     npm.cmd test
     npm.cmd run check

@@ -7,24 +7,22 @@ import {outfitSvg} from './outfit-svg.js';
 import {createMovieComedy,moveComedy,noMoveComedy} from './movie-comedy.js';
 import {CHARACTERS,DEFAULT_CHARACTERS,seatCharacter} from '../characters.mjs';
 import {characterSvg} from './character-svg.js';
+import {CHARACTER_EMOTES} from '../emotes.mjs';
+import {createRoomChatUI} from './room-chat.js';
 const backendUrl = typeof __LUDO_BACKEND_URL__ === 'string' ? __LUDO_BACKEND_URL__ : '';
 const $ = id => document.getElementById(id);
 const PALETTE = ['#df5e49','#64b85d','#e9b13e','#409acb'];
 const LABELS = ['Bear','Panda','Deer','Fox'];
 const explorer=s=>seatCharacter(room?.seats[s],s);
 const NS = 'http://www.w3.org/2000/svg';
-// Use the existing room emote messages so active rooms keep their connections.
-const CHARACTER_EMOTES=[
-  {kind:'jump',label:'Jump',icon:'🐾',wireText:'Nice move! ✨'},
-  {kind:'dance',label:'Dance',icon:'💃',wireText:'Oops! 🙈'},
-  {kind:'wave',label:'Wave',icon:'👋',wireText:'Let’s go! 🚀'}
-];
 const escape = value => String(value).replace(/[&<>"']/g,x => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 let ws, room = null, seat = -1, myId = '', session = null, pending = null;
 let joining = false, reconnectTimer, reconnectCount = 0, retry = true;
 let soundOn = false, audio, toastTimer, lastRollId = null, lastWinner = null;
 let diceAnimatingUntil = 0, serverOffset = 0, menu = 'create';
 let selectedCharacter='bear',characterOptions=null,characterVersion=0,optionsTimer;
+let chatVersion=0,emoteVersion=0,emoteReadyAt=0;
+const fallbackEmoteTimers=new Map();
 const query = new URLSearchParams(location.search);
 const initialCode = (query.get('room') || '').toUpperCase();
 try {
@@ -79,6 +77,7 @@ function connect() {
   clearTimeout(reconnectTimer);
   const socket = new WebSocket(socketAddress(backendUrl,location.href));
   ws = socket;
+  chatVersion=0;emoteVersion=0;roomChat.connection(false,0);
   socket.onopen = () => {
     if (socket !== ws) return;
     reconnectCount = 0;
@@ -92,7 +91,8 @@ function connect() {
     if (socket !== ws) return;
     const m = JSON.parse(e.data);
     if(m.type==='capabilities'){
-      characterVersion=m.characterVersion||0;requestCharacterOptions();renderCharacterPicker();
+      characterVersion=m.characterVersion||0;chatVersion=m.chatVersion||0;emoteVersion=m.emoteVersion||0;
+      roomChat.connection(true,chatVersion);requestCharacterOptions();renderCharacterPicker();updateButtons();
     }else if(m.type==='room-options'){
       if(menu==='join'&&m.code===$('room-input').value.trim().toUpperCase()){
         characterOptions=m;renderCharacterPicker();updateButtons();
@@ -101,24 +101,33 @@ function connect() {
       visualFresh=true;
       session = {code:m.code,token:m.token,seat:m.seat,id:m.id,shareBase:m.shareBase};
       seat = m.seat; myId = m.id; joining = false;
-      voice.connected(m.voiceVersion);
+      voice.connected(m.voiceVersion);roomChat.room(m.code);
       try { localStorage.setItem('ludo-session-'+m.code,JSON.stringify(session)); } catch {}
       history.replaceState({},'',location.pathname+'?room='+m.code);
+    } else if (m.type.startsWith('chat-')) {
+      roomChat.receive(m);
     } else if (m.type.startsWith('voice-')) {
       voice.receive(m);
     } else if (m.type === 'state') {
-      prepareVisuals(m.room); room = m.room; serverOffset = room.serverTime-Date.now();syncCharacterModels(); render();
+      prepareVisuals(m.room); room = m.room; serverOffset = room.serverTime-Date.now();syncCharacterModels(); render();roomChat.connection(true,chatVersion);
     } else if (m.type === 'error') {
       joining = false;
       if (!room && session) { try { localStorage.removeItem('ludo-session-'+session.code); } catch {} session = null; }
       toast(m.message);requestCharacterOptions(); updateButtons();
     } else if (m.type === 'emote') {
       const emote=CHARACTER_EMOTES.find(x=>x.wireText===m.text);
-      if(emote)jungleView?.celebrate(m.seat,emote.kind);
+      if(emote){
+        if(jungleView)jungleView.celebrate(m.seat,emote.kind);
+        else for(let token=0;token<4;token++){
+          const node=tokenNodes.get(m.seat+'-'+token);node.dataset.emote=emote.kind;
+          clearTimeout(fallbackEmoteTimers.get(node));
+          fallbackEmoteTimers.set(node,setTimeout(()=>{delete node.dataset.emote;fallbackEmoteTimers.delete(node);},2800));
+        }
+      }
       toast((room?.seats[m.seat]?.name || 'Player')+': '+(emote?emote.icon+' '+emote.label+'!':m.text));
       sound('emote');
     } else if (m.type === 'left') {
-      voice.leave();
+      voice.leave();roomChat.reset();
       if (session) { try { localStorage.removeItem('ludo-session-'+session.code); } catch {} }
       room = null; session = null; seat = -1; myId = ''; lastRollId = null; lastWinner = null;
       resetVisuals({game:null});visualFresh=true;
@@ -129,7 +138,7 @@ function connect() {
   };
   socket.onclose = e => {
     if (socket !== ws) return;
-    voice.disconnect();
+    voice.disconnect();roomChat.connection(false);
     $('connection-text').textContent = 'Reconnecting…';
     document.querySelector('.connection').classList.remove('online');
     if (e.code === 4001) { retry = false; toast('This player session is open in another tab.'); }
@@ -189,6 +198,7 @@ $('room-input').addEventListener('input',() => {
   optionsTimer=setTimeout(requestCharacterOptions,350);
 });
 function updateButtons() {
+  updateEmoteButtons();
   $('begin').disabled = joining||!!(menu==='join'&&(characterOptions?.started||characterOptions?.missing||characterOptions?.seats?.filter(Boolean).length===4));
   $('solo').disabled = joining;
   renderCharacterPicker();
@@ -227,12 +237,19 @@ document.querySelector('.emotes').innerHTML=CHARACTER_EMOTES.map((emote,index)=>
 ).join('');
 document.querySelectorAll('[data-emote]').forEach(b=>{
   b.onclick=()=>{
-    if(!room||!send({type:'emote',index:Number(b.dataset.emote)}))return;
+    if(b.disabled||!room||!send({type:'emote',index:Number(b.dataset.emote)}))return;
     // The server permits one emote every two seconds, regardless of turn.
-    document.querySelectorAll('[data-emote]').forEach(button=>button.disabled=true);
-    setTimeout(()=>document.querySelectorAll('[data-emote]').forEach(button=>button.disabled=false),2050);
+    emoteReadyAt=Date.now()+2050;updateEmoteButtons();
+    setTimeout(updateEmoteButtons,2050);
   };
 });
+function updateEmoteButtons(){
+  document.querySelectorAll('[data-emote]').forEach(button=>{
+    const waiting=Number(button.dataset.emote)>2&&emoteVersion<2;
+    button.disabled=!room||ws?.readyState!==WebSocket.OPEN||Date.now()<emoteReadyAt||waiting;
+    button.title=waiting?'This action is getting ready.':CHARACTER_EMOTES[Number(button.dataset.emote)].label+' with your explorers';
+  });
+}
 function rollNow() {
   if (room?.game && ! $('roll').disabled) send({type:'roll',revision:room.game.revision});
 }
@@ -550,7 +567,7 @@ function render() {
     $('lobby-controls').innerHTML='<div class="eyebrow">PULL UP A SEAT</div><h2 class="lobby-title">Gather your<br>expedition.</h2><p class="lobby-help">Share your room code or invite link. Everyone joins from their own device.</p><div class="lobby-illustration">🎲</div><div class="lobby-steps"><span>1</span>Invite up to three friends.</div><div class="lobby-steps"><span>2</span>Fill any empty seats with bots.</div>'+(host?'<button id="start-game" class="primary" '+(room.seats.filter(Boolean).length<2?'disabled':'')+'>Start the race <span>→</span></button>':'<p class="lobby-wait">Waiting for the host to start the race.</p>');
     if ($('start-game')) $('start-game').onclick=()=>send({type:'start'});
     $('activity-log').innerHTML='<p>Your table is ready. Invite the crew!</p><p>At least two players are needed to start.</p>';
-    $('winner-layer').hidden=true; paintTokens(); return;
+    $('winner-layer').hidden=true; updateButtons(); paintTokens(); return;
   }
   $('activity-log').innerHTML=g.messages.slice(0,5).map(text=>'<p>'+escape(text)+'</p>').join('');
   const current=room.seats[g.turn], mine=g.turn===seat;
@@ -626,6 +643,10 @@ function celebrate() {
 }
 paintTokens(); showDice(6);
 const movieComedy=createMovieComedy({board:$('board'),tokenNodes,reduced:reducedMotion,getRoom:()=>room});
+const roomChat=createRoomChatUI({send,getRoom:()=>room,getIdentity:()=>myId,speak:message=>{
+  if(room?.seats[message.seat]?.id===message.playerId)movieComedy.speak(message.seat,message.quoteId);
+}});
+window.ludoChat={snapshot:roomChat.snapshot};
 function makeScene(){return createJungleScene({board:$('board'),tokenNodes,comedy:movieComedy,getRoom:()=>room,getSeat:()=>seat,getServerTime:()=>Date.now()+serverOffset,colors:PALETTE,track:TRACK,lanes:LANES,yards:YARDS,safe:SAFE});}
 let jungleView=makeScene(),characterSignature=DEFAULT_CHARACTERS.join(',');
 function syncCharacterModels(){

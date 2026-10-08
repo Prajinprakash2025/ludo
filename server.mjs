@@ -8,10 +8,12 @@ import { WebSocketServer, WebSocket } from 'ws';
 import * as rules from './game.mjs';
 import { createVoiceSignaling } from './voice-server.mjs';
 import {availableCharacter} from './characters.mjs';
+import {CHARACTER_EMOTES} from './emotes.mjs';
+import {createRoomChat} from './chat-server.mjs';
 
 const root = fileURLToPath(new URL('./public/',import.meta.url));
 const TURN_MS = 45000;
-const EMOTES = ['Nice move! ✨','Oops! 🙈','Let’s go! 🚀','Good game! 🤝'];
+const EMOTES = CHARACTER_EMOTES.map(emote=>emote.wireText);
 const MIME = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.svg':'image/svg+xml','.jpg':'image/jpeg'};
 export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, botDelay = 1000,
   allowedOrigins = process.env.ALLOWED_ORIGINS || '', publicUrl = process.env.PUBLIC_URL || '', voiceConfig, giftPick = limit => randomInt(limit)} = {}) {
@@ -32,7 +34,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     res.setHeader('Referrer-Policy','same-origin');
     res.setHeader('Content-Security-Policy',"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws: wss:; media-src 'self' blob:; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'");
     res.setHeader('Cache-Control','no-cache');
-    if (path === '/health') { res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:true,voiceVersion:1,characterVersion:1})); return; }
+    if (path === '/health') { res.writeHead(200,{'Content-Type':'application/json'}); res.end(JSON.stringify({ok:true,voiceVersion:1,characterVersion:1,chatVersion:1,emoteVersion:2})); return; }
     if (!file) { res.writeHead(404); res.end('Not found'); return; }
     try {
       const ext = file.endsWith('.mjs') ? '.js' : file.slice(file.lastIndexOf('.'));
@@ -43,6 +45,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
   const wss = new WebSocketServer({server,maxPayload:24576});
   const send = (ws,data) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data)); };
   const voice = createVoiceSignaling(send,voiceConfig);
+  const chat = createRoomChat(send);
   const names = r => r.seats.map(p => p?.name || 'Player');
   function publicRoom(r) {
     return {code:r.code,owner:r.owner,mode:r.mode,revision:r.revision,
@@ -73,6 +76,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     send(ws,{type:'joined',code:r.code,token:p.token,seat,id:p.id,shareBase:ws.shareBase,voiceVersion:1});
     broadcast(r);
     voice.broadcast(r);
+    chat.history(ws,r);
   }
   const cleanName = x => typeof x === 'string' ? x.trim().replace(/[\u0000-\u001f<>]/g,'').slice(0,18) || 'Player' : 'Player';
   function addPlayer(r,ws,name,requested) {
@@ -125,6 +129,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
     }
     const r = ws.room, p = r?.seats[ws.seat];
     if (!r || !p || p.ws !== ws) throw new Error('Join a room first.');
+    if (m.type==='chat-send'||m.type==='chat-dialogue') {chat.handle(ws,m,r,p);return;}
     if (m.type.startsWith('voice-')) { voice.handle(ws,m,r,p); return; }
     if (m.type === 'leave') {
       voice.clear(r,p);
@@ -192,7 +197,7 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
       if (local) base = 'http://'+local.address+':'+server.address().port;
     }
     ws.shareBase = base;
-    send(ws,{type:'capabilities',characterVersion:1});
+    send(ws,{type:'capabilities',characterVersion:1,chatVersion:1,emoteVersion:2});
     ws.isAlive = true;
     ws.on('pong',() => { ws.isAlive = true; });
     ws.on('message',raw => {
@@ -217,7 +222,18 @@ export function createLudoServer({die = () => randomInt(1,7), turnMs = TURN_MS, 
         catch (e) { send(ws,{type:'voice-error',message:e.message}); }
         return;
       }
-      if (raw.length > 4096) { send(ws,{type:'error',message:'Action is too large.'}); return; }
+      const social = ['chat-send','chat-dialogue','emote'].includes(m?.type);
+      if (raw.length > 4096) { send(ws,{type:social?'chat-error':'error',message:'Action is too large.'}); return; }
+      if (social) {
+        // Chat and emote bursts cannot spend the gameplay budget or disconnect the room.
+        if (!ws.socialWindowAt || now-ws.socialWindowAt>5000) {ws.socialWindowAt=now;ws.socialCount=0;}
+        if (++ws.socialCount>12) {
+          if (!ws.socialLimitedAt || now-ws.socialLimitedAt>5000) {ws.socialLimitedAt=now;send(ws,{type:'chat-error',message:'A little slower, please.',retryAfterMs:1500});}
+          return;
+        }
+        try {handle(ws,m);} catch(e) {send(ws,{type:'chat-error',message:e.message});}
+        return;
+      }
       ws.windowAt ??= now; ws.messageCount ??= 0;
       if (now-ws.windowAt > 5000) { ws.windowAt = now; ws.messageCount = 0; }
       if (++ws.messageCount > 40) { ws.close(1008,'Too many actions'); return; }

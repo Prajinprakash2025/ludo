@@ -222,3 +222,43 @@ body.scene-3d{background:#123d2e}
 .forest-gift-callout[hidden]{display:none}
 .scene-3d .forest-outfit{display:none}
 .forest-outfit{pointer-events:none}
+/* Room chat stays separate from the board and dice. No backdrop blur. */
+.room-chat-launch{border:1px solid #a18245;border-radius:10px;background:#604322;color:#fff1cc;min-height:44px;padding:8px 12px;font-weight:700;cursor:pointer}
+.chat-unread:not(:empty){display:inline-block;min-width:20px;padding:2px 5px;margin-left:3px;border-radius:20px;background:#b85435;color:white;font-size:11px}
+.room-chat{position:fixed;right:16px;bottom:calc(140px + var(--chat-keyboard-offset,0px));z-index:80;width:min(380px,calc(100vw - 24px));height:min(490px,55dvh,calc(var(--chat-viewport-height,100dvh) - 160px));display:flex;flex-direction:column;border:2px solid #bc9453;border-radius:18px;background:#153c31;color:#fff2cf;box-shadow:0 8px 28px #051b1970;overflow:hidden;text-align:left}
+.room-chat[hidden],.room-chat [hidden]{display:none!important}
+.chat-heading{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#483321;flex-shrink:0}
+.chat-heading button{width:40px;height:40px;border:0;background:transparent;color:#fff2cf;font-size:26px;cursor:pointer}
+.chat-tabs{display:flex;gap:4px;padding:7px;background:#224b3e;flex-shrink:0}
+.chat-tabs button{flex:1;min-height:42px;border:1px solid #897345;border-radius:8px;background:#153c31;color:#dfd8c1;font-weight:700;cursor:pointer}
+.chat-tabs button[aria-selected=true]{background:#815d2b;color:#fff1cf;border-color:#e3bc72}
+.chat-content{min-height:0;flex:1;display:flex;flex-direction:column;overflow:hidden}
+#chat-empty{font-size:13px;text-align:center;color:#d0d9c1;margin:14px 8px 0}
+#chat-messages{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;list-style:none;padding:12px;margin:0;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin}
+.chat-message{max-width:93%;align-self:flex-start;padding:9px 11px;background:#254e3c;border-radius:12px 12px 12px 2px;overflow-wrap:anywhere}
+.chat-message.mine{align-self:flex-end;background:#614b2d;border-radius:12px 12px 2px 12px}
+.chat-message strong{font-size:11px;color:#f0c879;display:block}
+.chat-message p{margin:4px 0 0;font-size:14px;line-height:1.5;white-space:pre-wrap}
+#chat-form{display:flex;gap:7px;padding:10px;border-top:1px solid #45604a;flex-shrink:0}
+#chat-input{width:0;min-width:0;flex:1;margin:0;border:1px solid #897345;border-radius:9px;padding:10px;background:#f6eed6;color:#20352c;font-size:16px;min-height:44px}
+#chat-send{min-width:62px;border:1px solid #c19b57;background:#805c2c;color:#fff2cf;border-radius:9px;font-weight:700;cursor:pointer}
+.chat-tip{font-size:12px;margin:9px 12px;color:#dadfc4;flex-shrink:0}
+#chat-quotes{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 10px 10px;scrollbar-width:thin}
+.chat-quote{display:block;width:100%;text-align:left;padding:11px 12px;margin-bottom:7px;border:1px solid #67825d;border-radius:10px;background:#254e3c;color:#fff2cf;cursor:pointer;min-height:54px}
+.chat-quote span{display:block;font-size:14px;line-height:1.5}.chat-quote small{display:block;margin-top:5px;color:#d4d8b5;font-size:10px;line-height:1.4}
+#chat-status{font-size:11px;line-height:1.4;margin:0;padding:7px 12px;background:#113126;color:#d8dec2;flex-shrink:0}
+.room-chat button:disabled{opacity:.5;cursor:default}
+.room-chat button:focus-visible,.room-chat-launch:focus-visible{outline:3px solid #ffcf78;outline-offset:-3px}
+.scene-3d .play-panel .room-chat-launch{position:absolute;right:-126px;bottom:42px;width:112px}
+.scene-3d .play-panel .emotes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;width:260px;left:-275px}
+.scene-3d .emotes button.emote-action{min-width:0;width:100%;padding:5px 2px;height:52px;flex-direction:column;font-size:9px;gap:3px}
+.scene-3d .emotes .emote-action>span:first-child{font-size:20px}
+@media(min-width:651px) and (max-width:1300px){.scene-3d .play-panel .emotes{left:0;bottom:calc(100% + 8px)}.scene-3d .play-panel .room-chat-launch{right:0;bottom:calc(100% + 8px)}}
+@media(max-width:650px){.room-chat{right:12px;bottom:calc(116px + var(--chat-keyboard-offset,0px));height:min(450px,55dvh,calc(var(--chat-viewport-height,100dvh) - 140px))}.scene-3d .play-panel .emotes{left:auto;right:2px;bottom:100%;width:calc(100% - 104px);gap:3px;padding:4px}.scene-3d .emotes button.emote-action{height:40px;font-size:8px}.scene-3d .emotes .emote-action>span:first-child{font-size:16px}.scene-3d .play-panel .room-chat-launch{left:2px;right:auto;bottom:100%;width:95px;height:48px;font-size:12px}.scene-3d .play-panel .activity{bottom:calc(100% + 51px)}.scene-3d .play-panel .activity[open]{bottom:calc(100% + 51px)}}
+.token[data-emote=laugh] .animal-idle{animation:chat-laugh .18s alternate 14}
+.token[data-emote=celebrate] .animal-idle{animation:chat-cheer .35s alternate 8}
+.token[data-emote=jump] .animal-idle{animation:chat-cheer .35s alternate 6}
+.token[data-emote=dance] .animal-idle,.token[data-emote=wave] .animal-idle{animation:chat-laugh .3s alternate 8}
+@keyframes chat-laugh{from{transform:rotate(-8deg) scaleY(.94)}to{transform:rotate(8deg) scaleY(1.04)}}
+@keyframes chat-cheer{from{transform:translateY(0) rotate(-5deg)}to{transform:translateY(-8px) rotate(5deg)}}
+@media(prefers-reduced-motion:reduce){.token[data-emote] .animal-idle{animation:none!important}}

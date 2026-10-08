@@ -120,6 +120,15 @@ export function createMovieComedy({board,tokenNodes,reduced,getRoom}){
     current={...event,started:now,room:room.code,revision:room.game.revision,duration:partner?5100:3200,partner,reply:exchange?.reply,replyAt:2300,replied:false,actorStarted:now,exchangeKind:event.kind};
     showActor(event.kind,event.seat,event.token,line);anchor(50,40);return true;
   }
+  function speak(seat,quoteId){
+    const room=getRoom();
+    if(!room?.seats?.[seat]||!Number.isInteger(seat)||!Object.hasOwn(MOVIE_QUOTES,quoteId)||['celebration','done'].includes(room.game?.phase))return false;
+    const token=room.game?room.game.tokens[seat].findIndex(step=>step<FINISH):0;
+    if(token<0)return false;
+    const now=performance.now();clear();
+    current={kind:'boast',seat,token,manual:true,started:now,actorStarted:now,room:room.code,revision:room.game?.revision??null,duration:3200};
+    showActor('boast',seat,token,MOVIE_QUOTES[quoteId].text);anchor(50,40);return true;
+  }
   function anchor(x,y){
     bubble.style.left=Math.max(27,Math.min(73,x))+'%';
     bubble.style.top=Math.max(27,Math.min(70,y))+'%';
@@ -127,7 +136,7 @@ export function createMovieComedy({board,tokenNodes,reduced,getRoom}){
   function update(now){
     if(!current)return;
     const room=getRoom(),age=now-current.started;
-    if(!room?.game||room.code!==current.room||room.game.revision<current.revision||['celebration','done'].includes(room.game.phase)||age>=current.duration){clear();return;}
+    if(!room||room.code!==current.room||(!current.manual&&!room.game)||(current.revision!==null&&room.game?.revision<current.revision)||['celebration','done'].includes(room.game?.phase)||age>=current.duration){clear();return;}
     if(current.reply&&!current.replied&&age>=current.replyAt){
       current.replied=true;current.actorStarted=now;
       showActor('boast',current.partner.seat,current.partner.token,current.reply);
@@ -171,8 +180,8 @@ export function createMovieComedy({board,tokenNodes,reduced,getRoom}){
       a.head.rotation.z=-.2*fade;
     }
   }
-  return {start,reset,clear,update,pose,matches,anchor,observeRoll:pacing.observeRoll,
-    beforeMove(){if(!current?.reply)clear();},
+  return {start,speak,reset,clear,update,pose,matches,anchor,observeRoll:pacing.observeRoll,
+    beforeMove(){if(!current?.reply&&!current?.manual)clear();},
     victoryLine(key){
       if(key!==victoryKey){victoryKey=key;victoryText=dialogue('victory',performance.now())||'';}
       return victoryText;

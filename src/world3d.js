@@ -505,7 +505,7 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
   const characterEmotes=new Map();
   function celebrate(seat,kind='jump'){
     const room=getRoom();
-    if(!room?.seats[seat]||!Number.isInteger(seat)||!['jump','dance','wave'].includes(kind))return false;
+    if(!room?.seats[seat]||!Number.isInteger(seat)||!['jump','dance','wave','celebrate','laugh'].includes(kind))return false;
     characterEmotes.set(seat,{kind,started:performance.now(),room:room.code});
     return true;
   }
@@ -752,6 +752,20 @@ export function createJungleScene({board,tokenNodes,comedy,getRoom,getSeat,getSe
             a.head.rotation.z-=sway*.12;a.head.rotation.x+=Math.cos(beat)*.07*strength;
             a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*(1.05+Math.sin(beat+i*Math.PI)*.55)*strength);
             a.feet.forEach((foot,i)=>foot.rotation.x+=Math.sin(beat+i*Math.PI)*.5*strength);
+          }else if(emote.kind==='laugh'){
+            const chuckle=Math.sin(age*19)*strength;
+            a.body.rotation.x=.16*strength;a.body.rotation.z=chuckle*.075;
+            a.body.position.y+=Math.abs(chuckle)*.07;
+            a.head.rotation.x-=.16*strength;a.head.rotation.z=chuckle*.09;
+            a.eyes.scale.y=1-.68*strength;
+            a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*(.6+chuckle*.12)*strength);
+          }else if(emote.kind==='celebrate'){
+            const cheer=Math.sin(age*9)*strength;
+            a.body.position.y+=Math.abs(cheer)*.2;
+            a.body.rotation.y=Math.sin(age*3)*.35*strength;
+            a.head.rotation.z=cheer*.12;a.halo.visible=true;
+            a.arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*(2.2+cheer*.35)*strength);
+            a.feet.forEach((foot,i)=>foot.rotation.x=Math.sin(age*9+i*Math.PI)*.25*strength);
           }else{
             a.body.rotation.z-=.07*strength;
             a.head.rotation.y+=.12*strength;a.head.rotation.z+=Math.sin(age*5)*.07*strength;
